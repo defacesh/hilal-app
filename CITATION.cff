@@ -1,0 +1,9 @@
+cff-version: 1.2.0
+message: "Bu yazılımı veya altyapıyı kullanıyorsanız lütfen aşağıdaki şekilde atıfta bulunun."
+authors:
+  - family-names: "KARAKAYA"
+    given-names: "Hasan Hüseyin"
+title: "Hilal - İslami Araçlar"
+version: 1.0.0
+date-released: 2026-11-15
+url: "https://github.com/defacesh/hilal-app"
