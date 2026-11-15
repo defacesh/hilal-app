@@ -28,23 +28,24 @@ Piyasadaki karmaşık, reklam dolu ve kullanıcı verisi toplayan uygulamaların
 ## ✨ Özellikler
 
 ### 🕌 Namaz Vakitleri & Bildirimler
-- **Hassas Konum ve Hesaplama:** GPS veya ilçe seçimi ile Diyanet İşleri Başkanlığı ve uluslararası astronomik hesaplama yöntemleri.
-- **Akıllı Geri Sayım:** Bir sonraki vakte kalan süreyi dinamik olarak gösteren arayüz.
-- **Ezân & Vakit Hatırlatıcıları:** Her vakit için kişiselleştirilebilir bildirimler ve ezan alarmları.
+- **Türkiye (81 İl & İlçe Çevrimdışı) & Yurt Dışı Konum Seçimi:** GPS ile otomatik konum tespiti, Türkiye için internet gerektirmeyen 81 il ve tüm ilçeler veritabanı, yurt dışı için dünya geneli şehir araması.
+- **Hassas Hesaplama:** Diyanet İşleri Başkanlığı ve uluslararası astronomik hesaplama yöntemleri (MWL, ISNA, Umm Al-Qura vb.) ile sapma dakikası ayarı.
+- **Akıllı Geri Sayım:** Bir sonraki vakte kalan süreyi dinamik olarak gösteren arayüz ve kerahat vakti uyarıları.
+- **Ezan & Vakit Hatırlatıcıları:** Her vakit için özelleştirilebilir bildirim süreleri, cuma hatırlatması ve sessiz saatler modu.
 
 ### 🧭 Kıble Pusulası
 - Manyetik sensör ve GPS destekli yüksek hassasiyetli görsel kıble pusulası.
 - Manyetik sapma açısı (declination) hesabı ve kalibrasyon desteği.
 
 ### 📖 Kur'an-ı Kerim
-- Sure, cüz ve sayfa bazlı akıcı okuma deneyimi.
-- Ayet ayet meal desteği ve arama.
+- Sure, cüz ve sayfa bazlı akıcı okuma deneyimi (çevrimdışı ve çevrimiçi kaynak desteği).
+- Tam metin, sadece Arapça, sadece okunuş veya sadece meal gibi özelleştirilebilir okuma modları.
 - Ayraç ve son okunan yeri otomatik hatırlama.
 
 ### 📿 Zikirmatik & Dualar
 - **Gelişmiş Zikirmatik:** Hedef belirleme, sesli ve dokunsal (haptic) geri bildirimler, özel zikirler ekleme.
 - **Kapsamlı Dua Kütüphanesi:** Kur'an'dan dualar, Peygamber duaları, günlük dualar, Arapça metin, Türkçe okunuş ve mealleri.
-- **Namaz Sonrası Tesbihatı:** Sabah, öğle, ikindi, akşam ve yatsı namazı tesbihatları.
+- **Namaz Sonrası Tesbihatı:** Sabah, öğle, ikindi, akşam ve yatsı namazı tesbihatları ve otomatik ilerleme.
 
 ### 🌟 Diğer İslami Araçlar
 - **Esma-ül Hüsna:** Allah'ın 99 ismi, Arapça yazılışı, ebced değerleri, anlamları ve faziletleri.
@@ -59,15 +60,15 @@ Piyasadaki karmaşık, reklam dolu ve kullanıcı verisi toplayan uygulamaların
 - Ana ekranınızdan uygulamayı açmadan bir sonraki vakti ve kalan süreyi takip edebileceğiniz yerel Android widget'ları (Küçük 2x2, Orta 4x2 ve Büyük 4x4 imsakiye görünümü).
 
 ### 🎨 Görünüm & Erişilebilirlik
-- **Tema Desteği:** Açık (Light), Koyu (Dark), Saf Siyah (OLED) ve Sistem teması seçenekleri.
-- **Yüksek Kontrast & Yazı Boyutu:** Kolay okunabilirlik için ayarlanabilir yazı boyutları ve erişilebilirlik seçenekleri.
+- **Zengin Tema ve Renk Seçenekleri:** Canlı önizlemeli 11 farklı tema ve 29 uyumlu vurgu rengi.
+- **Kapsamlı Erişilebilirlik:** Canlı önizlemeli yazı boyutu seçici, yüksek kontrast modu, disleksi dostu yazı tipi (OpenDyslexic), büyük dokunma hedefleri, animasyon azaltma ve yaşlı/sade kullanım için Basit Mod.
 
 ---
 
 ## 🔒 Gizlilik Politikası
 
 - **Veri Toplanmaz:** Hilal, hiçbir kişisel verinizi sunuculara göndermez, analiz (telemetry) veya reklam kimliği takibi yapmaz.
-- **Çevrimdışı Çalışır:** İnternet bağlantınız olmasa dahi önceden indirilen vakit verileri ve dahili içerikler çalışmaya devam eder.
+- **Çevrimdışı Çalışır:** İnternet bağlantınız olmasa dahi önceden indirilen vakit verileri, Türkiye il/ilçe konumları ve dahili içerikler çalışmaya devam eder.
 - **Reklamsız:** İbadet anında dikkatinizi dağıtacak hiçbir reklam veya sponsorlu içerik barındırmaz.
 
 ---
@@ -85,36 +86,47 @@ Projeyi yerel ortamınızda çalıştırmak için aşağıdaki adımları takip 
 
 1. **Depoyu Klonlayın:**
    ```bash
-   git clone https://github.com/defacesh/hilal-app.git
+   git clone [https://github.com/defacesh/hilal-app.git](https://github.com/defacesh/hilal-app.git)
    cd hilal-app
-   ```
+
+```
 
 2. **Bağımlılıkları Yükleyin:**
-   ```bash
-   npm install
-   ```
+```bash
+npm install
+
+```
+
 
 3. **Geliştirici Sunucusunu Başlatın:**
-   ```bash
-   npx expo start
-   ```
+```bash
+npx expo start
+
+```
+
 
 4. **Uygulamayı Cihazda / Emülatörde Çalıştırın:**
-   - **Android:** `npx expo run:android`
-   - **iOS:** `npx expo run:ios`
-   - Veya Expo Go / Development Client ile terminaldeki QR kodu taratarak test edin.
+* **Android:** `npx expo run:android`
+* **iOS:** `npx expo run:ios`
+* Veya Expo Go / Development Client ile terminaldeki QR kodu taratarak test edin.
+
+
 
 ---
 
 ## 👨‍💻 Geliştirici
 
-- **Geliştirici:** Hasan Hüseyin KARAKAYA
-- **GitHub:** [@defacesh](https://github.com/defacesh)
-- **İletişim:** [krkyhsn@proton.me](mailto:krkyhsn@proton.me)
-- **Proje Deposu:** [https://github.com/defacesh/hilal-app](https://github.com/defacesh/hilal-app)
+* **Geliştirici:** Hasan Hüseyin KARAKAYA
+* **GitHub:** [@defacesh](https://github.com/defacesh)
+* **İletişim:** [krkyhsn@proton.me](https://www.google.com/search?q=mailto%3Akrkyhsn%40proton.me)
+* **Proje Deposu:** [https://github.com/defacesh/hilal-app](https://github.com/defacesh/hilal-app)
 
 ---
 
-## 📄 Lisans
+## 📄 Lisans ve Atıf
 
-Bu proje [MIT Lisansı](LICENSE) kapsamında açık kaynak olarak lisanslanmıştır. Dilediğiniz gibi inceleyebilir, katkıda bulunabilir ve geliştirebilirsiniz.
+Bu proje [MIT Lisansı](https://www.google.com/search?q=LICENSE) kapsamında açık kaynak olarak lisanslanmıştır.
+
+Projenin kodlarını, bileşenlerini veya mimari altyapısını kendi projelerinizde kullanmanız durumunda, lisans gereği telif hakkı bildirimini korumanız ve aşağıdaki şekilde kaynak/atıf belirtmeniz gerekmektedir:
+
+> **Kaynak / Atıf:** *Hilal - İslami Araçlar* — Geliştirici: **Hasan Hüseyin KARAKAYA** ([https://github.com/defacesh/hilal-app](https://github.com/defacesh/hilal-app))
