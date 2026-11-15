@@ -21,9 +21,15 @@ import {
 } from 'react-native';
 import * as ReactNative from 'react-native';
 
-const InteractionManager = ReactNative.InteractionManager || {
-  runAfterInteractions: (cb) => setTimeout(cb, 50),
-};
+const InteractionManager =
+  ReactNative.InteractionManager && typeof ReactNative.InteractionManager.runAfterInteractions === 'function'
+    ? ReactNative.InteractionManager
+    : {
+        runAfterInteractions: (cb) => {
+          const id = setTimeout(cb, 50);
+          return { cancel: () => clearTimeout(id) };
+        },
+      };
 import { AppText as Text, AppTextInput as TextInput } from '../components/AppText';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -1628,7 +1634,7 @@ export default function SettingsScreen({ onBack }) {
         const results = searchTurkeyLocations(q, selectedCityRef, 25);
         setSearch({ status: 'done', results });
       });
-      return () => task.cancel();
+      return () => task?.cancel?.();
     }
 
     // Yurt Dışı sekmesi → Open-Meteo

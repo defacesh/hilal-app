@@ -60,6 +60,99 @@ const formatCount = (n) => {
 };
 
 /* ================================================================
+   Zikir Detay / Açıklama Modalı
+   ================================================================ */
+const ZikirDetailModal = memo(function ZikirDetailModal({
+  zikir,
+  visible,
+  onClose,
+  onSelectAndClose,
+  theme,
+  highContrast,
+  fontScale,
+}) {
+  if (!visible || !zikir) return null;
+
+  return (
+    <Modal visible transparent animationType="fade" onRequestClose={onClose}>
+      <View style={styles.dialogOverlay}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+        <View
+          style={[
+            styles.dialogCard,
+            {
+              backgroundColor: theme.surface,
+              borderColor: theme.border,
+              borderWidth: highContrast ? 2 : 1,
+            },
+          ]}
+        >
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <View style={{ flex: 1, paddingRight: 8 }}>
+              <Text
+                style={[
+                  styles.dialogTitle,
+                  {
+                    color: theme.primary,
+                    fontSize: Math.round(18 * fontScale),
+                    fontWeight: '900',
+                  },
+                ]}
+              >
+                {zikir.name}
+              </Text>
+              <Text style={{ color: theme.textDim, fontSize: Math.round(12 * fontScale), marginTop: 2 }}>
+                Kategori: {zikir.category} · Önerilen Hedef: {zikir.target}
+              </Text>
+            </View>
+            <TouchableOpacity onPress={onClose} style={styles.modalCloseButton}>
+              <Ionicons name="close" size={20} color={theme.text} />
+            </TouchableOpacity>
+          </View>
+
+          <View style={[styles.detailBox, { backgroundColor: theme.background, borderColor: theme.border }]}>
+            <Ionicons name="book-outline" size={20} color={theme.primary} style={{ marginBottom: 6 }} />
+            <Text
+              style={[
+                styles.dialogMessage,
+                {
+                  color: theme.text,
+                  fontSize: Math.round(14 * fontScale),
+                  lineHeight: Math.round(20 * fontScale),
+                },
+              ]}
+            >
+              {zikir.description || zikir.meaning || "Bu zikir, kalbi huzura kavuşturan, Allah'ı anmanın ve şükretmenin faziletli bir yoludur. Günlük ibadetlerinizde düzenli olarak çekebilirsiniz."}
+            </Text>
+          </View>
+
+          <View style={styles.dialogActions}>
+            <TouchableOpacity
+              onPress={onClose}
+              style={[styles.dialogBtn, { borderColor: theme.border }]}
+            >
+              <Text style={[styles.dialogBtnText, { color: theme.text, fontSize: Math.round(14 * fontScale) }]}>
+                Kapat
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => {
+                onSelectAndClose(zikir);
+              }}
+              style={[styles.dialogBtn, { backgroundColor: theme.primary, borderColor: theme.primary }]}
+            >
+              <Text style={[styles.dialogBtnText, { color: '#FFF', fontSize: Math.round(14 * fontScale), fontWeight: '800' }]}>
+                Bu Zikre Geç
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+});
+
+/* ================================================================
    Dialog — Alert.alert yerine web-uyumlu modal
    ================================================================ */
 const AppDialog = memo(function AppDialog({
@@ -360,6 +453,7 @@ const ZikirItem = memo(({
   surfaceElevated,
   fontScale,
   onSelect,
+  onOpenDetails,
   onToggleFavorite,
   onDelete,
   highContrast,
@@ -471,6 +565,17 @@ const ZikirItem = memo(({
         {isSelected && <Ionicons name="checkmark-circle" size={21 * fontScale} color={theme.primary} />}
       </TouchableOpacity>
 
+      {/* Açıklama / Detay Butonu */}
+      <TouchableOpacity
+        onPress={() => onOpenDetails(item)}
+        style={styles.detailButton}
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel="Zikir açıklaması ve fazileti"
+      >
+        <Ionicons name="information-circle-outline" size={20 * fontScale} color={theme.textDim} />
+      </TouchableOpacity>
+
       <TouchableOpacity
         onPress={() => onToggleFavorite(item)}
         style={styles.favoriteButton}
@@ -554,6 +659,9 @@ export default function ZikirmatikScreen({ onBack }) {
   /* ---------- Dialog State ---------- */
   const [dialog, setDialog] = useState(null);
   const closeDialog = useCallback(() => setDialog(null), []);
+
+  /* ---------- Detay/Açıklama Modal State ---------- */
+  const [activeDetailZikir, setActiveDetailZikir] = useState(null);
 
   /* ---------- Toast Feedback ---------- */
   const [toast, setToast] = useState({ message: '', visible: false });
@@ -728,6 +836,11 @@ export default function ZikirmatikScreen({ onBack }) {
     }
   }, [selectedZikirId, zikirCounts, selectedZikir, setSelectedZikirId, showToast]);
 
+  const handleOpenDetails = useCallback((item) => {
+    hapticFeedback('light');
+    setActiveDetailZikir(item);
+  }, []);
+
   const handleSelectTarget = useCallback((newTarget) => {
     hapticFeedback('light');
     setZikirTarget(newTarget, selectedZikirId);
@@ -792,6 +905,7 @@ export default function ZikirmatikScreen({ onBack }) {
       target: parsedTarget,
       category: newZikirCategory,
       isCustom: true,
+      description: 'Kişisel olarak eklediğiniz bu zikri dilediğiniz gibi çekebilir, zikirmatik ile takip edebilirsiniz.',
     };
 
     setCustomZikirs((prev) => [newItem, ...prev]);
@@ -1387,6 +1501,7 @@ export default function ZikirmatikScreen({ onBack }) {
         surfaceElevated={surfaceElevated}
         fontScale={fontScale}
         onSelect={handleSelectZikir}
+        onOpenDetails={handleOpenDetails}
         onToggleFavorite={handleToggleFavorite}
         onDelete={handleDeleteCustomZikir}
         highContrast={highContrast}
@@ -1543,6 +1658,20 @@ export default function ZikirmatikScreen({ onBack }) {
         maxToRenderPerBatch={10}
         windowSize={5}
         removeClippedSubviews={Platform.OS === 'android'}
+      />
+
+      {/* ZİKİR DETAY / AÇIKLAMA MODALI */}
+      <ZikirDetailModal
+        zikir={activeDetailZikir}
+        visible={!!activeDetailZikir}
+        onClose={() => setActiveDetailZikir(null)}
+        onSelectAndClose={(item) => {
+          handleSelectZikir(item);
+          setActiveDetailZikir(null);
+        }}
+        theme={theme}
+        highContrast={highContrast}
+        fontScale={fontScale}
       />
 
       {/* YENİ ZİKİR EKLEME MODALI */}
@@ -1782,6 +1911,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   scrollContent: { padding: 20, paddingBottom: 40 },
+
+  /* Detay Modal Stili */
+  detailBox: {
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginVertical: 12,
+  },
 
   /* Dialog Stilleri */
   dialogOverlay: {
@@ -2027,6 +2164,12 @@ const styles = StyleSheet.create({
   },
   savedCountText: { fontWeight: '900', letterSpacing: 0.2 },
 
+  detailButton: {
+    width: 38,
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   favoriteButton: {
     width: 38,
     minHeight: 48,
