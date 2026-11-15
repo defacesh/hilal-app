@@ -118,7 +118,16 @@
       ],
       "expo-sensors",
       "expo-status-bar",
-      "expo-build-properties",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableProguardInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true,
+            "extraProguardRules": "-keep class androidx.work.** { *; }\n-keep class * extends androidx.work.Worker { *; }\n-keep class androidx.work.impl.WorkDatabase* { *; }\n-keep class com.reactnativeandroidwidget.** { *; }"
+          }
+        }
+      ],
       "expo-font",
       [
         "expo-splash-screen",
