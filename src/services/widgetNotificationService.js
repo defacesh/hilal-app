@@ -56,7 +56,7 @@ function configureNotificationHandler() {
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
       shouldShowAlert: true,
-      shouldPlaySound: false,
+      shouldPlaySound: true,
       shouldSetBadge: false,
     }),
   });
@@ -268,6 +268,7 @@ export async function scheduleDailyWidgetNotification() {
         body,
         data: { type: DAILY_NOTIFICATION_TYPE },
         sound: 'default',
+        channelId: Platform.OS === 'android' ? 'prayer-reminders-v2' : undefined,
       },
       trigger: {
         hour: DAILY_NOTIFICATION_HOUR,

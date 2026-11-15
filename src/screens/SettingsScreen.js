@@ -17,21 +17,212 @@ import {
   FlatList,
   KeyboardAvoidingView,
   BackHandler,
+  Image,
+  InteractionManager,
 } from 'react-native';
 import { AppText as Text, AppTextInput as TextInput } from '../components/AppText';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { useAppStore, useTheme } from '../store/useAppStore';
 import { ACCENT_COLORS, ACCENT_GROUPS, THEME_MODES, BASE_THEMES } from '../theme/colors';
 import { cancelPrayerNotifications } from '../services/prayerNotifications';
 import { clearPrayerCache } from '../services/ummahApi';
 import { clearUmmahContentCache } from '../services/ummahContentApi';
-import { clearDiyanetCache, fetchDiyanetTimes } from '../services/diyanetApi';
+import { clearDiyanetCache } from '../services/diyanetApi';
 import { clearHomeCache } from '../services/homePreloader';
 import { MEAL_EDITIONS, getMealEditionName } from '../data/vakitContent';
 import { QURAN_SOURCE_LIST, clearAllQuranCache } from '../services/quranReaderService';
 import { ThemedSwitch } from '../components/ThemedSwitch';
+import { TURKEY_CITIES, detectIsTurkey } from '../data/turkeyLocations';
+
+/* ================================================================
+   Uygulama Simgesi Yüklemesi (Stroke olmadan)
+   ================================================================ */
+let APP_ICON_SOURCE = null;
+try { APP_ICON_SOURCE = require('../../assets/icon.png'); } catch {}
+if (!APP_ICON_SOURCE) {
+  try { APP_ICON_SOURCE = require('../../assets/adaptive-icon.png'); } catch {}
+}
+
+const AppLogoBadge = memo(function AppLogoBadge({ size = 34, theme, hc }) {
+  const radius = Math.round(size * 0.28);
+  if (APP_ICON_SOURCE) {
+    return (
+      <View
+        style={{
+          width: size,
+          height: size,
+          borderRadius: radius,
+          overflow: 'hidden',
+          backgroundColor: 'transparent',
+        }}
+      >
+        <Image
+          source={APP_ICON_SOURCE}
+          style={{ width: '100%', height: '100%' }}
+          resizeMode="cover"
+          accessibilityIgnoresInvertColors
+        />
+      </View>
+    );
+  }
+  return (
+    <View
+      style={{
+        width: size,
+        height: size,
+        borderRadius: radius,
+        backgroundColor: hc ? theme.text : `${theme.primary}1F`,
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <MaterialCommunityIcons
+        name="star-crescent"
+        size={Math.round(size * 0.56)}
+        color={hc ? theme.background : theme.primary}
+      />
+    </View>
+  );
+});
+
+/* ================================================================
+   Türkiye yerel konum yardımcıları (Ultra Hafif / 0ms Açılış)
+   ================================================================ */
+const TR_CHAR_MAP = { İ: 'i', I: 'i', ı: 'i', Ş: 's', ş: 's', Ğ: 'g', ğ: 'g', Ü: 'u', ü: 'u', Ö: 'o', ö: 'o', Ç: 'c', ç: 'c' };
+const normalizeForSearch = (s) =>
+  String(s || '')
+    .replace(/[İIıŞşĞğÜüÖöÇç]/g, (ch) => TR_CHAR_MAP[ch] || ch)
+    .toLowerCase()
+    .trim();
+
+// Sadece 81 il listesi (0.1ms — modal açılışında anında hazır)
+const CITY_GROUP_LIST = TURKEY_CITIES.map((c, idx) => ({
+  id: `city-${c.plate ?? idx}`,
+  isCityGroup: true,
+  cityRef: c,
+  title: c.city,
+  subtitle: `${(c.districts || []).length} ilçe · Plaka ${String(c.plate ?? idx + 1).padStart(2, '0')}`,
+  plate: c.plate,
+  _norm: normalizeForSearch(c.city),
+}));
+
+// İlçe araması sadece kullanıcı arama yaptığında veya GPS tetiklendiğinde oluşturulur
+let _cachedFlatDistricts = null;
+function getFlatDistricts() {
+  if (_cachedFlatDistricts) return _cachedFlatDistricts;
+  const out = [];
+  for (let i = 0; i < TURKEY_CITIES.length; i++) {
+    const city = TURKEY_CITIES[i];
+    const normCity = normalizeForSearch(city.city);
+    const list = city.districts || [];
+    for (let j = 0; j < list.length; j++) {
+      const d = list[j];
+      const normDist = normalizeForSearch(d.name);
+      out.push({
+        id: `tr-${city.plate}-${j}`,
+        title: d.name,
+        subtitle: `${city.city}, Türkiye`,
+        city: city.city,
+        district: d.name,
+        country: 'Türkiye',
+        latitude: d.lat,
+        longitude: d.lon,
+        timezone: 'Europe/Istanbul',
+        _normDist: normDist,
+        _normAll: `${normCity} ${normDist}`,
+      });
+    }
+  }
+  _cachedFlatDistricts = out;
+  return out;
+}
+
+function getCityDistrictItems(cityRef) {
+  if (!cityRef) return [];
+  const list = cityRef.districts || [];
+  const out = new Array(list.length);
+  for (let i = 0; i < list.length; i++) {
+    const d = list[i];
+    out[i] = {
+      id: `tr-${cityRef.plate}-${i}`,
+      title: d.name,
+      subtitle: `${cityRef.city}, Türkiye`,
+      city: cityRef.city,
+      district: d.name,
+      country: 'Türkiye',
+      latitude: d.lat,
+      longitude: d.lon,
+      timezone: 'Europe/Istanbul',
+    };
+  }
+  return out;
+}
+
+function searchTurkeyLocations(query, selectedCityRef = null, limit = 25) {
+  const q = normalizeForSearch(query);
+
+  if (selectedCityRef) {
+    const items = getCityDistrictItems(selectedCityRef);
+    if (!q) return items;
+    return items.filter((d) => normalizeForSearch(d.title).includes(q));
+  }
+
+  if (!q) {
+    return CITY_GROUP_LIST;
+  }
+
+  const cityMatches = [];
+  for (let i = 0; i < CITY_GROUP_LIST.length; i++) {
+    if (CITY_GROUP_LIST[i]._norm.includes(q)) {
+      cityMatches.push({
+        ...CITY_GROUP_LIST[i],
+        title: `${CITY_GROUP_LIST[i].title} (Tüm İlçeler)`,
+      });
+      if (cityMatches.length >= 4) break;
+    }
+  }
+
+  const allDistricts = getFlatDistricts();
+  const starts = [];
+  const contains = [];
+  for (let i = 0; i < allDistricts.length; i++) {
+    const d = allDistricts[i];
+    if (d._normDist.startsWith(q)) starts.push(d);
+    else if (d._normAll.includes(q)) contains.push(d);
+    if (starts.length + contains.length >= limit * 2) break;
+  }
+
+  return [...cityMatches, ...starts, ...contains].slice(0, limit);
+}
+
+function findNearestTurkeyDistrict(lat, lon, maxDistanceKm = 35) {
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  const districts = getFlatDistricts();
+
+  let best = null;
+  let bestDist = Infinity;
+
+  for (let i = 0; i < districts.length; i++) {
+    const d = districts[i];
+    const dLat = ((d.latitude - lat) * Math.PI) / 180;
+    const dLon = ((d.longitude - lon) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos((lat * Math.PI) / 180) *
+        Math.cos((d.latitude * Math.PI) / 180) *
+        Math.sin(dLon / 2) ** 2;
+    const km = 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    if (km < bestDist) {
+      bestDist = km;
+      best = { ...d, _distanceKm: km };
+    }
+  }
+
+  if (best && bestDist <= maxDistanceKm) return best;
+  return null;
+}
 
 /* ================================================================
    Güvenli modül yüklemeleri
@@ -108,7 +299,6 @@ const APP_NAME = 'Hilal';
 const APP_TAGLINE = 'İslami Araçlar';
 const APP_DESCRIPTION = "Namaz vakitleri, Kur'an, dualar, kıble ve daha fazlası. Sade, reklamsız ve tamamen cihazınızda çalışır.";
 const DEVELOPER_NAME = 'Hasan Hüseyin KARAKAYA';
-const WEBSITE_URL = '';
 const GITHUB_URL = 'https://github.com/defacesh/hilal-app';
 const CONTACT_EMAIL = 'mailto:krkyhsn@proton.me';
 
@@ -186,22 +376,26 @@ const CHANGELOG_ITEMS = [
 ];
 
 const GEOCODING_URL = 'https://geocoding-api.open-meteo.com/v1/search';
-const DEBOUNCE_MS = 350;
+const DEBOUNCE_MS = 300;
 const SEARCH_TIMEOUT_MS = 8000;
 
 const makePlace = (id, title, country, latitude, longitude, timezone) => ({
   id, title, subtitle: country, city: title, district: title, country, latitude, longitude, timezone,
 });
 
-const POPULAR_PLACES = [
-  makePlace('p-istanbul', 'İstanbul', 'Türkiye', 41.0082, 28.9784, 'Europe/Istanbul'),
-  makePlace('p-ankara', 'Ankara', 'Türkiye', 39.9334, 32.8597, 'Europe/Istanbul'),
-  makePlace('p-izmir', 'İzmir', 'Türkiye', 38.4237, 27.1428, 'Europe/Istanbul'),
-  makePlace('p-bursa', 'Bursa', 'Türkiye', 40.1826, 29.0669, 'Europe/Istanbul'),
-  makePlace('p-konya', 'Konya', 'Türkiye', 37.8746, 32.4932, 'Europe/Istanbul'),
+const POPULAR_ABROAD_PLACES = [
   makePlace('p-mekke', 'Mekke', 'Suudi Arabistan', 21.3891, 39.8579, 'Asia/Riyadh'),
   makePlace('p-medine', 'Medine', 'Suudi Arabistan', 24.5247, 39.5692, 'Asia/Riyadh'),
+  makePlace('p-kudus', 'Kudüs', 'Filistin', 31.7683, 35.2137, 'Asia/Jerusalem'),
   makePlace('p-berlin', 'Berlin', 'Almanya', 52.52, 13.405, 'Europe/Berlin'),
+  makePlace('p-koln', 'Köln', 'Almanya', 50.9375, 6.9603, 'Europe/Berlin'),
+  makePlace('p-paris', 'Paris', 'Fransa', 48.8566, 2.3522, 'Europe/Paris'),
+  makePlace('p-londra', 'Londra', 'Birleşik Krallık', 51.5074, -0.1278, 'Europe/London'),
+  makePlace('p-amsterdam', 'Amsterdam', 'Hollanda', 52.3676, 4.9041, 'Europe/Amsterdam'),
+  makePlace('p-viyana', 'Viyana', 'Avusturya', 48.2082, 16.3738, 'Europe/Vienna'),
+  makePlace('p-baku', 'Bakü', 'Azerbaycan', 40.4093, 49.8671, 'Asia/Baku'),
+  makePlace('p-saraybosna', 'Saraybosna', 'Bosna-Hersek', 43.8563, 18.4131, 'Europe/Sarajevo'),
+  makePlace('p-newyork', 'New York', 'Amerika Birleşik Devletleri', 40.7128, -74.006, 'America/New_York'),
 ];
 
 const LIGHT_MODES = ['light', 'modernLight', 'ivory', 'sepia', 'sand'];
@@ -266,44 +460,12 @@ const groupBy = (list, keyFn) => {
   return Array.from(map, ([name, items]) => ({ name, items }));
 };
 
-const PRAYER_GREETINGS = {
-  imsak:   { text: 'Hayırlı sabahlar',     icon: 'sunny-outline' },
-  sunrise: { text: 'Hayırlı kuşluk vakti', icon: 'partly-sunny-outline' },
-  dhuhr:   { text: 'Hayırlı öğleler',      icon: 'sunny-outline' },
-  asr:     { text: 'Hayırlı ikindiler',    icon: 'partly-sunny-outline' },
-  maghrib: { text: 'Hayırlı akşamlar',     icon: 'cloudy-outline' },
-  isha:    { text: 'Hayırlı geceler',      icon: 'moon-outline' },
-};
-
-const getFallbackGreeting = () => {
+const getGreetingByClock = () => {
   const h = new Date().getHours();
-  if (h >= 5 && h < 12) return PRAYER_GREETINGS.imsak;
-  if (h >= 12 && h < 17) return PRAYER_GREETINGS.dhuhr;
-  if (h >= 17 && h < 20) return PRAYER_GREETINGS.maghrib;
-  return PRAYER_GREETINGS.isha;
-};
-
-const timeStrToDate = (timeStr, baseDate = new Date(), dayOffset = 0) => {
-  const m = String(timeStr ?? '').match(/^(\d{1,2}):(\d{2})$/);
-  if (!m) return null;
-  const d = new Date(baseDate);
-  d.setDate(d.getDate() + dayOffset);
-  d.setHours(Number(m[1]), Number(m[2]), 0, 0);
-  return d;
-};
-
-const findCurrentPrayerWindow = (times) => {
-  if (!times) return null;
-  const now = new Date();
-  const order = ['imsak', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];
-  const todays = order.map((id) => ({ id, date: timeStrToDate(times[id], now, 0) })).filter((p) => p.date);
-  if (todays.length === 0) return null;
-  let current = null;
-  for (let i = 0; i < todays.length; i++) {
-    if (now >= todays[i].date) current = todays[i].id;
-    else break;
-  }
-  return current ?? 'isha';
+  if (h >= 5 && h < 11) return { text: 'Hayırlı sabahlar', icon: 'sunny-outline' };
+  if (h >= 11 && h < 17) return { text: 'Hayırlı günler', icon: 'partly-sunny-outline' };
+  if (h >= 17 && h < 20) return { text: 'Hayırlı akşamlar', icon: 'cloudy-outline' };
+  return { text: 'Hayırlı geceler', icon: 'moon-outline' };
 };
 
 /* ================================================================
@@ -370,12 +532,19 @@ const Toast = memo(function Toast({ message, visible }) {
   const opacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    if (!visible && calm) {
+      translateY.setValue(0);
+      opacity.setValue(0);
+      return;
+    }
     if (calm) { translateY.setValue(0); opacity.setValue(visible ? 1 : 0); return; }
     Animated.parallel([
       Animated.timing(translateY, { toValue: visible ? 0 : 20, duration: 220, easing: Easing.out(Easing.cubic), useNativeDriver: USE_NATIVE }),
       Animated.timing(opacity, { toValue: visible ? 1 : 0, duration: 200, useNativeDriver: USE_NATIVE }),
     ]).start();
   }, [visible, calm, translateY, opacity]);
+
+  if (!message && !visible) return null;
 
   const textColor = hc ? '#000000' : onPrimary;
   const iconBg = hc ? '#000000' : onPrimary;
@@ -520,6 +689,44 @@ const Row = memo(function Row({ item, last }) {
           backgroundColor: hc ? theme.text : border,
           left: item.icon ? (big ? 72 : 66) : 16,
         }]} />
+      ) : null}
+    </Tap>
+  );
+});
+
+const LocationRowItem = memo(function LocationRowItem({
+  item, selected, isPopularAbroad, isLast, onSelect,
+}) {
+  const { theme, hc, big, dim, border, fs } = useUI();
+  return (
+    <Tap
+      onPress={() => onSelect(item)}
+      label={`${item.title}${item.subtitle ? ', ' + item.subtitle : ''}${selected ? '. Seçili' : ''}`}
+      pressedStyle={{ backgroundColor: `${theme.primary}0D` }}
+      style={[styles.row, big && styles.rowBig]}
+    >
+      <View style={{ marginRight: 14 }}>
+        <IconChip
+          name={item.isCityGroup ? 'business-outline' : (isPopularAbroad ? 'earth-outline' : 'location-outline')}
+          size={38}
+          tone="accent"
+        />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={{ color: selected ? theme.primary : theme.text, fontSize: fs(15), fontWeight: '700' }} numberOfLines={1}>
+          {item.title}
+        </Text>
+        {!!item.subtitle && (
+          <Text style={{ color: hc ? theme.text : dim, fontSize: fs(12.5), marginTop: 3 }} numberOfLines={1}>
+            {item.subtitle}
+          </Text>
+        )}
+      </View>
+      {selected
+        ? <Ionicons name="checkmark-circle" size={22} color={theme.primary} />
+        : <Ionicons name="chevron-forward" size={17} color={hc ? theme.text : theme.textMuted} />}
+      {!isLast ? (
+        <View style={[styles.divider, { left: 56, backgroundColor: hc ? theme.text : border }]} />
       ) : null}
     </Tap>
   );
@@ -691,8 +898,11 @@ const Sheet = memo(function Sheet({ visible, onClose, title, subtitle, children,
   const { theme, hc, dim, border, big, fs } = useUI();
   const insets = useSafeAreaInsets();
   const closeSize = big ? 50 : 42;
+
+  if (!visible) return null;
+
   return (
-    <Modal visible={visible} animationType="slide" transparent statusBarTranslucent onRequestClose={onClose}>
+    <Modal visible={visible} animationType="fade" transparent statusBarTranslucent onRequestClose={onClose}>
       <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessible={false} focusable={false} />
         <View
@@ -1185,16 +1395,27 @@ export default function SettingsScreen({ onBack }) {
   const [showAllAccents, setShowAllAccents] = useState(false);
   const [resetting, setResetting] = useState(false);
 
+  /* Konum seçimi state'leri: Türkiye / Yurt Dışı ayrımı */
+  const defaultRegion = useMemo(() => {
+    const loc = useAppStore.getState().selectedLocation;
+    if (loc?.country) {
+      return normalizeForSearch(loc.country) === 'turkiye' ? 'tr' : 'abroad';
+    }
+    return detectIsTurkey() ? 'tr' : 'abroad';
+  }, []);
+  const [locationRegion, setLocationRegion] = useState(defaultRegion);
+  const [selectedCityRef, setSelectedCityRef] = useState(null);
   const [query, setQuery] = useState('');
   const [retryKey, setRetryKey] = useState(0);
   const [search, setSearch] = useState({ status: 'idle', results: [] });
   const [detectingLocation, setDetectingLocation] = useState(false);
-  const [greeting, setGreeting] = useState(() => getFallbackGreeting());
 
   const [toast, setToast] = useState({ message: '', visible: false });
   const toastTimerRef = useRef(null);
   const scrollRef = useRef(null);
   const fade = useRef(new Animated.Value(1)).current;
+
+  const greeting = useMemo(() => getGreetingByClock(), []);
 
   const showToast = useCallback((message) => {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
@@ -1286,9 +1507,6 @@ export default function SettingsScreen({ onBack }) {
   const statusBarStyle = isLight ? 'dark-content' : 'light-content';
   const onPrimaryColor = highContrast ? '#000000' : (theme.onPrimary || '#FFFFFF');
 
-  /* ============================================================
-     FONT ÖLÇEK — yastıklanmış (ayarlar UI'sını kırmayacak kadar)
-     ============================================================ */
   const settingsScale = 1 + (readingFontScale - 1) * 0.5;
 
   const ui = useMemo(() => ({
@@ -1311,7 +1529,7 @@ export default function SettingsScreen({ onBack }) {
     scrollRef.current?.scrollTo?.({ y: 0, animated: false });
     if (reduceMotion) { fade.setValue(1); return; }
     fade.setValue(0);
-    Animated.timing(fade, { toValue: 1, duration: 200, easing: Easing.out(Easing.cubic), useNativeDriver: USE_NATIVE }).start();
+    Animated.timing(fade, { toValue: 1, duration: 180, easing: Easing.out(Easing.cubic), useNativeDriver: USE_NATIVE }).start();
   }, [page, reduceMotion, fade]);
 
   useEffect(() => {
@@ -1363,45 +1581,58 @@ export default function SettingsScreen({ onBack }) {
     .map((g) => ({ ...g, ids: g.ids.filter((id) => allowedAccentIds.has(id)) }))
     .filter((g) => g.ids.length > 0), [allowedAccentIds]);
 
+  const openLocationModal = useCallback(() => {
+    const isTrLoc = location?.country
+      ? normalizeForSearch(location.country) === 'turkiye'
+      : detectIsTurkey();
+    setLocationRegion(isTrLoc ? 'tr' : 'abroad');
+    setSelectedCityRef(null);
+    setQuery('');
+    setSearch({ status: 'idle', results: [] });
+    setLocationModal(true);
+  }, [location?.country]);
+
   useEffect(() => {
-    let cancelled = false;
-    let timer = null;
-    const refreshGreeting = async () => {
-      let times = null;
-      if (location?.city) {
-        try {
-          const data = await fetchDiyanetTimes(location.city, location.district);
-          if (cancelled) return;
-          times = data?.times ?? null;
-        } catch {}
-      }
-      if (cancelled) return;
-      const windowId = times ? findCurrentPrayerWindow(times) : null;
-      setGreeting(windowId ? PRAYER_GREETINGS[windowId] : getFallbackGreeting());
-      if (times) {
-        const now = new Date();
-        const nexts = ['imsak', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha']
-          .map((id) => timeStrToDate(times[id], now, 0))
-          .filter((d) => d && d > now).sort((a, b) => a - b);
-        const nextDate = nexts[0] || timeStrToDate(times.imsak, now, 1);
-        if (nextDate) {
-          const delay = Math.min(nextDate.getTime() - now.getTime() + 1000, 60 * 60 * 1000);
-          timer = setTimeout(() => { if (!cancelled) refreshGreeting(); }, Math.max(delay, 30000));
-        }
-      } else {
-        timer = setTimeout(() => { if (!cancelled) refreshGreeting(); }, 60 * 60 * 1000);
-      }
-    };
-    refreshGreeting();
-    return () => { cancelled = true; if (timer) clearTimeout(timer); };
-  }, [location?.city, location?.district]);
+    if (!locationModal) {
+      setQuery('');
+      setSelectedCityRef(null);
+      setSearch({ status: 'idle', results: [] });
+    }
+  }, [locationModal]);
 
-  useEffect(() => { if (!locationModal) { setQuery(''); setSearch({ status: 'idle', results: [] }); } }, [locationModal]);
-
+  /* ============================================================
+     KONUM ARAMA — Anında (0ms) ilk açılış + InteractionManager ile arama
+     ============================================================ */
   useEffect(() => {
     if (!locationModal) return undefined;
+
     const q = query.trim();
-    if (q.length < 2) { setSearch({ status: 'idle', results: [] }); return undefined; }
+
+    if (locationRegion === 'tr') {
+      // Boş sorgu ve il seçili değilse doğrudan hazır 81 il listesi (0ms)
+      if (!q && !selectedCityRef) {
+        setSearch({ status: 'done', results: CITY_GROUP_LIST });
+        return undefined;
+      }
+      // İl seçiliyse doğrudan o ilin ilçeleri
+      if (!q && selectedCityRef) {
+        setSearch({ status: 'done', results: getCityDistrictItems(selectedCityRef) });
+        return undefined;
+      }
+      // Yazı yazıldıysa UI etkileşiminden sonra filtrele
+      const task = InteractionManager.runAfterInteractions(() => {
+        const results = searchTurkeyLocations(q, selectedCityRef, 25);
+        setSearch({ status: 'done', results });
+      });
+      return () => task.cancel();
+    }
+
+    // Yurt Dışı sekmesi → Open-Meteo
+    if (q.length < 2) {
+      setSearch({ status: 'idle', results: [] });
+      return undefined;
+    }
+
     setSearch((prev) => ({ ...prev, status: 'loading' }));
     const controller = new AbortController();
     let timedOut = false;
@@ -1409,7 +1640,7 @@ export default function SettingsScreen({ onBack }) {
     const debounceId = setTimeout(async () => {
       timeoutId = setTimeout(() => { timedOut = true; controller.abort(); }, SEARCH_TIMEOUT_MS);
       try {
-        const res = await fetch(`${GEOCODING_URL}?name=${encodeURIComponent(q)}&count=10&language=tr&format=json`, { signal: controller.signal });
+        const res = await fetch(`${GEOCODING_URL}?name=${encodeURIComponent(q)}&count=12&language=tr&format=json`, { signal: controller.signal });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         const seen = new Set();
@@ -1424,7 +1655,7 @@ export default function SettingsScreen({ onBack }) {
       } finally { clearTimeout(timeoutId); }
     }, DEBOUNCE_MS);
     return () => { clearTimeout(debounceId); clearTimeout(timeoutId); controller.abort(); };
-  }, [query, retryKey, locationModal]);
+  }, [query, retryKey, locationModal, locationRegion, selectedCityRef]);
 
   const applyPreset = useCallback((preset) => {
     hapticImpact('medium');
@@ -1503,6 +1734,9 @@ export default function SettingsScreen({ onBack }) {
     );
   }, [setReadingFontScale, setLargeTouchTargets, setHighContrast, setDyslexiaFont, setReduceMotion, setGlobalHaptic, showToast]);
 
+  /* ============================================================
+     GPS — Türkiye içindeyse offline nearest district, değilse reverse geocode
+     ============================================================ */
   const handleAutoGPS = async () => {
     if (detectingLocation) return;
     setDetectingLocation(true);
@@ -1515,6 +1749,26 @@ export default function SettingsScreen({ onBack }) {
       const position = (await Location.getLastKnownPositionAsync({ maxAge: 15 * 60 * 1000 })) ||
         (await withTimeout(Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }), 15000));
       const { latitude, longitude } = position.coords;
+
+      const localMatch = findNearestTurkeyDistrict(latitude, longitude, 35);
+      if (localMatch) {
+        if (typeof setSelectedLocation === 'function') {
+          setSelectedLocation({
+            city: localMatch.city,
+            district: localMatch.district,
+            country: 'Türkiye',
+            timezone: 'Europe/Istanbul',
+            latitude,
+            longitude,
+            isAutoGPS: true,
+          });
+          hapticSuccess();
+          showToast(`Konum: ${localMatch.district}, ${localMatch.city}`);
+          setLocationModal(false);
+        }
+        return;
+      }
+
       let place = null;
       try {
         const [geo] = await withTimeout(Location.reverseGeocodeAsync({ latitude, longitude }), 8000);
@@ -1534,7 +1788,13 @@ export default function SettingsScreen({ onBack }) {
     } finally { setDetectingLocation(false); }
   };
 
-  const handleSelectPlace = (item) => {
+  const handleSelectPlace = useCallback((item) => {
+    if (item.isCityGroup && item.cityRef) {
+      hapticImpact('light');
+      setSelectedCityRef(item.cityRef);
+      setQuery('');
+      return;
+    }
     hapticImpact('medium');
     if (typeof setSelectedLocation === 'function') {
       setSelectedLocation({
@@ -1545,7 +1805,7 @@ export default function SettingsScreen({ onBack }) {
       showToast(`Konum: ${item.district}, ${item.city}`);
       setLocationModal(false);
     }
-  };
+  }, [setSelectedLocation, showToast]);
 
   const onThemeSelect = useCallback((item) => {
     hapticImpact();
@@ -1694,73 +1954,86 @@ export default function SettingsScreen({ onBack }) {
     if (message) showToast(message);
   };
 
-  const items = [];
-  const add = (cat, group, it) => items.push({ ...it, cat, group });
+  const items = useMemo(() => {
+    const list = [];
+    const add = (cat, group, it) => list.push({ ...it, cat, group });
 
-  const homeToggle = (id, group, icon, label, desc, key, fb, def = true) => add('look', group, {
-    id, type: 'switch', icon, label, desc, keywords: fb,
-    on: def ? homePrefs[key] !== false : homePrefs[key] === true,
-    onChange: (v) => setHomePrefWithFeedback(key, v, fb),
-  });
-  const cardToggle = (id, group, icon, label, desc, key) => add('look', group, {
-    id, type: 'switch', icon, label, desc,
-    on: widgetsConfig[key] !== false,
-    onChange: () => toggleWidget(key),
-  });
+    const homeToggle = (id, group, icon, label, desc, key, fb, def = true) => add('look', group, {
+      id, type: 'switch', icon, label, desc, keywords: fb,
+      on: def ? homePrefs[key] !== false : homePrefs[key] === true,
+      onChange: (v) => setHomePrefWithFeedback(key, v, fb),
+    });
+    const cardToggle = (id, group, icon, label, desc, key) => add('look', group, {
+      id, type: 'switch', icon, label, desc,
+      on: widgetsConfig[key] !== false,
+      onChange: () => toggleWidget(key),
+    });
 
-  add('prayer', 'Konum', { id: 'location', type: 'link', icon: 'location-outline', label: 'Konum', desc: 'Namaz vakitleri bu konuma göre hesaplanır', value: locationLabel, keywords: 'şehir il ilçe lokasyon gps', onPress: () => setLocationModal(true) });
-  add('prayer', 'Hesaplama', { id: 'dataSource', type: 'link', icon: 'server-outline', label: 'Veri kaynağı', desc: 'Vakitler nereden alınsın', value: selectedDataSource.name, keywords: 'diyanet aladhan api sunucu', onPress: () => setPicker('dataSource') });
-  add('prayer', 'Hesaplama', { id: 'method', type: 'link', icon: 'calculator-outline', label: 'Hesaplama yöntemi', desc: 'Vakit hesabında kullanılan standart', value: selectedMethodName, keywords: 'metot diyanet mwl isna', onPress: () => setPicker('method') });
-  add('prayer', 'Hesaplama', { id: 'tune', type: 'link', icon: 'time-outline', label: 'Sapma dakikaları', desc: 'Tüm vakitlere artı veya eksi düzeltme', value: tuneMinutes === 0 ? 'Yok' : `${tuneMinutes > 0 ? '+' : ''}${tuneMinutes} dk`, keywords: 'düzeltme tune', onPress: () => setPicker('tune') });
+    add('prayer', 'Konum', { id: 'location', type: 'link', icon: 'location-outline', label: 'Konum', desc: 'Namaz vakitleri bu konuma göre hesaplanır', value: locationLabel, keywords: 'şehir il ilçe lokasyon gps türkiye yurt dışı', onPress: openLocationModal });
+    add('prayer', 'Hesaplama', { id: 'dataSource', type: 'link', icon: 'server-outline', label: 'Veri kaynağı', desc: 'Vakitler nereden alınsın', value: selectedDataSource.name, keywords: 'diyanet aladhan api sunucu', onPress: () => setPicker('dataSource') });
+    add('prayer', 'Hesaplama', { id: 'method', type: 'link', icon: 'calculator-outline', label: 'Hesaplama yöntemi', desc: 'Vakit hesabında kullanılan standart', value: selectedMethodName, keywords: 'metot diyanet mwl isna', onPress: () => setPicker('method') });
+    add('prayer', 'Hesaplama', { id: 'tune', type: 'link', icon: 'time-outline', label: 'Sapma dakikaları', desc: 'Tüm vakitlere artı veya eksi düzeltme', value: tuneMinutes === 0 ? 'Yok' : `${tuneMinutes > 0 ? '+' : ''}${tuneMinutes} dk`, keywords: 'düzeltme tune', onPress: () => setPicker('tune') });
 
-  add('notifications', 'Vakit bildirimleri', { id: 'notifications', type: 'switch', icon: notifEnabled ? 'notifications-outline' : 'notifications-off-outline', label: 'Vakit bildirimleri', desc: notifEnabled ? 'Açık' : 'Kapalı', keywords: 'hatırlatma alarm ezan', on: notifEnabled, onChange: onNotificationsToggle });
-  add('notifications', 'Vakit bildirimleri', { id: 'reminder', type: 'link', icon: 'alarm-outline', label: 'Hatırlatma zamanı', desc: notifEnabled ? 'Vakitten ne kadar önce bildirim gelsin' : 'Önce vakit bildirimlerini açın', value: notifEnabled ? reminderText : undefined, keywords: 'dakika önce', disabled: !notifEnabled, onPress: () => setPicker('reminder') });
-  add('notifications', 'Bildirim tarzı', { id: 'notifSound', type: 'switch', icon: 'volume-medium-outline', label: 'Bildirim sesi', desc: 'Bildirimlerde ses çal', keywords: 'ses uyarı', on: widgetsConfig.notificationSound !== false, onChange: () => toggleWidget('notificationSound') });
-  add('notifications', 'Bildirim tarzı', { id: 'notifVibrate', type: 'switch', icon: 'phone-portrait-outline', label: 'Bildirim titreşimi', desc: 'Bildirimlerde titret', keywords: 'titreşim vibrate', on: widgetsConfig.notificationVibrate !== false, onChange: () => toggleWidget('notificationVibrate') });
-  add('notifications', 'Özel zamanlar', { id: 'fridayReminder', type: 'switch', icon: 'calendar-outline', label: 'Cuma hatırlatması', desc: 'Cuma günleri özel hatırlatma', keywords: 'cuma günü', on: widgetsConfig.fridayReminder === true, onChange: () => toggleWidget('fridayReminder') });
-  add('notifications', 'Özel zamanlar', { id: 'quietHours', type: 'switch', icon: 'moon-outline', label: 'Sessiz saatler', desc: '00:00 – 05:00 arası bildirim yok', keywords: 'gece rahatsız etme', on: widgetsConfig.quietHoursEnabled === true, onChange: () => toggleWidget('quietHoursEnabled') });
+    add('notifications', 'Vakit bildirimleri', { id: 'notifications', type: 'switch', icon: notifEnabled ? 'notifications-outline' : 'notifications-off-outline', label: 'Vakit bildirimleri', desc: notifEnabled ? 'Açık' : 'Kapalı', keywords: 'hatırlatma alarm ezan', on: notifEnabled, onChange: onNotificationsToggle });
+    add('notifications', 'Vakit bildirimleri', { id: 'reminder', type: 'link', icon: 'alarm-outline', label: 'Hatırlatma zamanı', desc: notifEnabled ? 'Vakitten ne kadar önce bildirim gelsin' : 'Önce vakit bildirimlerini açın', value: notifEnabled ? reminderText : undefined, keywords: 'dakika önce', disabled: !notifEnabled, onPress: () => setPicker('reminder') });
+    add('notifications', 'Bildirim tarzı', { id: 'notifSound', type: 'switch', icon: 'volume-medium-outline', label: 'Bildirim sesi', desc: 'Bildirimlerde ses çal', keywords: 'ses uyarı', on: widgetsConfig.notificationSound !== false, onChange: () => toggleWidget('notificationSound') });
+    add('notifications', 'Bildirim tarzı', { id: 'notifVibrate', type: 'switch', icon: 'phone-portrait-outline', label: 'Bildirim titreşimi', desc: 'Bildirimlerde titret', keywords: 'titreşim vibrate', on: widgetsConfig.notificationVibrate !== false, onChange: () => toggleWidget('notificationVibrate') });
+    add('notifications', 'Özel zamanlar', { id: 'fridayReminder', type: 'switch', icon: 'calendar-outline', label: 'Cuma hatırlatması', desc: 'Cuma günleri özel hatırlatma', keywords: 'cuma günü', on: widgetsConfig.fridayReminder === true, onChange: () => toggleWidget('fridayReminder') });
+    add('notifications', 'Özel zamanlar', { id: 'quietHours', type: 'switch', icon: 'moon-outline', label: 'Sessiz saatler', desc: '00:00 – 05:00 arası bildirim yok', keywords: 'gece rahatsız etme', on: widgetsConfig.quietHoursEnabled === true, onChange: () => toggleWidget('quietHoursEnabled') });
 
-  add('look', 'Tema', { id: 'theme', type: 'link', icon: 'color-palette-outline', label: 'Tema ve renk', desc: 'Uygulamanın genel görünümü', value: `${selectedThemeMode.name} · ${accentName}`, keywords: 'karanlık aydınlık dark light siyah vurgu', onPress: () => { setThemeTab('theme'); setThemeModal(true); } });
-  homeToggle('showStickyHero', 'Ana sayfanın üstü', 'albums-outline', 'Sabit mini kart', 'Aşağı kaydırınca üstte sıradaki vakit görünür', 'showStickyHero', 'Sabit kart');
-  homeToggle('showHijriInHeader', 'Ana sayfanın üstü', 'moon-outline', 'Hicri tarih', 'Başlığın altında hicri tarihi göster', 'showHijriInHeader', 'Hicri tarih');
-  homeToggle('showPrayerStrip', 'Ana sayfanın üstü', 'apps-outline', 'Vakit şeridi', 'Yatay vakit kartları', 'showPrayerStrip', 'Vakit şeridi');
-  homeToggle('showCountdown', 'Ana sayfanın üstü', 'timer-outline', 'Geri sayım', 'Sıradaki vakte kalan süre', 'showCountdown', 'Geri sayım');
-  homeToggle('showDailyProgress', 'Ana sayfa içeriği', 'stopwatch-outline', 'Bugünkü ilerleme', 'Bugün kaç vakit geçti, kaç kaldı', 'showDailyProgress', 'İlerleme');
-  homeToggle('showQuickActions', 'Ana sayfa içeriği', 'compass-outline', 'Keşfet düğmeleri', 'Kıble, zikir, dualar ve takvim kısayolları', 'showQuickActions', 'Keşfet düğmeleri');
-  homeToggle('showDailyNames', 'Ana sayfa içeriği', 'library-outline', 'Günün isimleri', 'Kız ve erkek isim önerileri', 'showDailyNames', 'Günün isimleri');
-  homeToggle('showNotificationsCard', 'Ana sayfa içeriği', 'notifications-outline', 'Hatırlatmalar kartı', 'Bildirim ayarlarına hızlı erişim', 'showNotificationsCard', 'Hatırlatmalar kartı');
-  homeToggle('showManeviContent', 'Ana sayfa içeriği', 'sparkles-outline', 'Manevi içerik bölümü', 'Vakte özel ayet, dua ve esma kartları', 'showManeviContent', 'Manevi içerik');
-  homeToggle('showDailyVerse', 'Ana sayfa içeriği', 'book-outline', 'Günün ayeti', 'Her gün farklı bir ayet', 'showDailyVerse', 'Günün ayeti', false);
-  cardToggle('verseCard', 'Manevi içerik kartları', 'albums-outline', 'Vakit ayeti', 'Ayet kartını göster', 'showVerseCard');
-  cardToggle('duaCard', 'Manevi içerik kartları', 'heart-outline', 'Vakit duası', 'Dua kartını göster', 'showDuaCard');
-  cardToggle('esmaCard', 'Manevi içerik kartları', 'sparkles-outline', 'Esmaül Hüsna', 'Esma kartını göster', 'showEsmaCard');
-  cardToggle('progressTrack', 'Vakit kartı', 'pie-chart-outline', 'İlerleme çubuğu', 'Vakit içi ilerleme göstergesi', 'showProgressTrack');
-  cardToggle('kerahat', 'Vakit kartı', 'warning-outline', 'Kerahat uyarıları', 'Kerahat vakitlerinde görsel uyarı', 'showKerahatWarning');
+    add('look', 'Tema', { id: 'theme', type: 'link', icon: 'color-palette-outline', label: 'Tema ve renk', desc: 'Uygulamanın genel görünümü', value: `${selectedThemeMode.name} · ${accentName}`, keywords: 'karanlık aydınlık dark light siyah vurgu', onPress: () => { setThemeTab('theme'); setThemeModal(true); } });
+    homeToggle('showStickyHero', 'Ana sayfanın üstü', 'albums-outline', 'Sabit mini kart', 'Aşağı kaydırınca üstte sıradaki vakit görünür', 'showStickyHero', 'Sabit kart');
+    homeToggle('showHijriInHeader', 'Ana sayfanın üstü', 'moon-outline', 'Hicri tarih', 'Başlığın altında hicri tarihi göster', 'showHijriInHeader', 'Hicri tarih');
+    homeToggle('showPrayerStrip', 'Ana sayfanın üstü', 'apps-outline', 'Vakit şeridi', 'Yatay vakit kartları', 'showPrayerStrip', 'Vakit şeridi');
+    homeToggle('showCountdown', 'Ana sayfanın üstü', 'timer-outline', 'Geri sayım', 'Sıradaki vakte kalan süre', 'showCountdown', 'Geri sayım');
+    homeToggle('showDailyProgress', 'Ana sayfa içeriği', 'stopwatch-outline', 'Bugünkü ilerleme', 'Bugün kaç vakit geçti, kaç kaldı', 'showDailyProgress', 'İlerleme');
+    homeToggle('showQuickActions', 'Ana sayfa içeriği', 'compass-outline', 'Keşfet düğmeleri', 'Kıble, zikir, dualar ve takvim kısayolları', 'showQuickActions', 'Keşfet düğmeleri');
+    homeToggle('showDailyNames', 'Ana sayfa içeriği', 'library-outline', 'Günün isimleri', 'Kız ve erkek isim önerileri', 'showDailyNames', 'Günün isimleri');
+    homeToggle('showNotificationsCard', 'Ana sayfa içeriği', 'notifications-outline', 'Hatırlatmalar kartı', 'Bildirim ayarlarına hızlı erişim', 'showNotificationsCard', 'Hatırlatmalar kartı');
+    homeToggle('showManeviContent', 'Ana sayfa içeriği', 'sparkles-outline', 'Manevi içerik bölümü', 'Vakte özel ayet, dua ve esma kartları', 'showManeviContent', 'Manevi içerik');
+    homeToggle('showDailyVerse', 'Ana sayfa içeriği', 'book-outline', 'Günün ayeti', 'Her gün farklı bir ayet', 'showDailyVerse', 'Günün ayeti', false);
+    cardToggle('verseCard', 'Manevi içerik kartları', 'albums-outline', 'Vakit ayeti', 'Ayet kartını göster', 'showVerseCard');
+    cardToggle('duaCard', 'Manevi içerik kartları', 'heart-outline', 'Vakit duası', 'Dua kartını göster', 'showDuaCard');
+    cardToggle('esmaCard', 'Manevi içerik kartları', 'sparkles-outline', 'Esmaül Hüsna', 'Esma kartını göster', 'showEsmaCard');
+    cardToggle('progressTrack', 'Vakit kartı', 'pie-chart-outline', 'İlerleme çubuğu', 'Vakit içi ilerleme göstergesi', 'showProgressTrack');
+    cardToggle('kerahat', 'Vakit kartı', 'warning-outline', 'Kerahat uyarıları', 'Kerahat vakitlerinde görsel uyarı', 'showKerahatWarning');
 
-  add('reading', "Kur'an", { id: 'quranSource', type: 'link', icon: 'library-outline', label: "Kur'an kaynağı", desc: 'Metin ve meal kaynağı', value: selectedQuranSource.label, keywords: 'quran offline diyanet', onPress: () => setPicker('quranSource') });
-  add('reading', 'Metin gösterimi', { id: 'readingMode', type: 'link', icon: 'reader-outline', label: 'Okuma modu', desc: 'Arapça, okunuş ve meal gösterimi', value: readingModeLabel, keywords: 'arapça türkçe meal okunuş', onPress: () => setPicker('readingMode') });
-  add('reading', 'Metin gösterimi', { id: 'showArabic', type: 'switch', icon: 'language-outline', label: 'Arapça metni göster', desc: 'Kapalıysa yalnızca Türkçe görünür', keywords: 'arapça gizle', on: showArabic, onChange: () => toggleShowArabic() });
-  add('reading', 'Metin gösterimi', { id: 'mealEdition', type: 'link', icon: 'document-text-outline', label: 'Meal kaynağı', desc: 'Türkçe meal yayınevi', value: getMealEditionName(mealEdition), keywords: 'meal edition', onPress: () => setPicker('meal') });
-  add('reading', 'Tesbihat', { id: 'tesbihatAuto', type: 'switch', icon: 'play-forward-outline', label: 'Otomatik ilerle', desc: 'Sayaç dolunca sonraki adıma geç', keywords: 'tesbihat sayaç', on: tesbihatAutoAdvance !== false, onChange: (v) => setTesbihatAutoAdvance(v) });
+    add('reading', "Kur'an", { id: 'quranSource', type: 'link', icon: 'library-outline', label: "Kur'an kaynağı", desc: 'Metin ve meal kaynağı', value: selectedQuranSource.label, keywords: 'quran offline diyanet', onPress: () => setPicker('quranSource') });
+    add('reading', 'Metin gösterimi', { id: 'readingMode', type: 'link', icon: 'reader-outline', label: 'Okuma modu', desc: 'Arapça, okunuş ve meal gösterimi', value: readingModeLabel, keywords: 'arapça türkçe meal okunuş', onPress: () => setPicker('readingMode') });
+    add('reading', 'Metin gösterimi', { id: 'showArabic', type: 'switch', icon: 'language-outline', label: 'Arapça metni göster', desc: 'Kapalıysa yalnızca Türkçe görünür', keywords: 'arapça gizle', on: showArabic, onChange: () => toggleShowArabic() });
+    add('reading', 'Metin gösterimi', { id: 'mealEdition', type: 'link', icon: 'document-text-outline', label: 'Meal kaynağı', desc: 'Türkçe meal yayınevi', value: getMealEditionName(mealEdition), keywords: 'meal edition', onPress: () => setPicker('meal') });
+    add('reading', 'Tesbihat', { id: 'tesbihatAuto', type: 'switch', icon: 'play-forward-outline', label: 'Otomatik ilerle', desc: 'Sayaç dolunca sonraki adıma geç', keywords: 'tesbihat sayaç', on: tesbihatAutoAdvance !== false, onChange: (v) => setTesbihatAutoAdvance(v) });
 
-  add('access', 'Yazı ve düğme boyutu', { id: 'presets', type: 'custom', label: 'Kolay kullanım', keywords: 'kolay kullanım büyük yazı yaşlı normal çok büyük font punto', render: () => <PresetTiles currentPreset={currentPreset} onSelect={applyPreset} /> });
-  add('access', 'Yazı ve düğme boyutu', { id: 'fontSizeDetail', type: 'link', icon: 'text-outline', label: 'Okuma yazısı boyutu', desc: "Kur'an, dua ve tesbihat yazıları", value: readingFontLabel, keywords: 'yazı boyut font punto', onPress: () => setPicker('fontScale') });
-  add('access', 'Okuma ve görme', { id: 'highContrast', type: 'switch', icon: 'contrast-outline', label: 'Yüksek kontrast', desc: 'Metin ve arka plan farkını artırır', keywords: 'okunabilir görme', on: highContrast, onChange: onToggleHighContrast });
-  add('access', 'Okuma ve görme', { id: 'dyslexiaFont', type: 'switch', icon: 'text-outline', label: 'Okuma dostu yazı tipi', desc: 'Disleksi için tasarlanmış OpenDyslexic', keywords: 'disleksi font yazı tipi', on: dyslexiaFont, onChange: onToggleDyslexia });
-  add('access', 'Okuma ve görme', { id: 'largeTargets', type: 'switch', icon: 'hand-right-outline', label: 'Büyük dokunma hedefleri', desc: 'Düğmeleri ve satırları büyütür', keywords: 'buton hedef dokunma', on: largeTouchTargets, onChange: onToggleLargeTargets });
-  add('access', 'Okuma ve görme', { id: 'simpleMode', type: 'switch', icon: 'accessibility-outline', label: 'Basit mod', desc: 'Çok büyük yazılar ve sade arayüz', keywords: 'yaşlı sade kolay', on: isSimpleMode, onChange: onSimpleModeToggle });
-  add('access', 'Hareket ve dokunma', { id: 'reduceMotion', type: 'switch', icon: 'flash-off-outline', label: 'Animasyonları azalt', desc: 'Geçişleri ve hareketleri sadeleştirir', keywords: 'reduce motion hareket', on: reduceMotion, onChange: onToggleReduceMotion });
-  add('access', 'Hareket ve dokunma', { id: 'haptic', type: 'switch', icon: 'hand-left-outline', label: 'Titreşimli geri bildirim', desc: 'Dokunuşlarda hafif titreşim', keywords: 'haptic dokunma', on: globalHaptic !== false, onChange: onToggleHaptic });
-  add('access', 'Sıfırlama', { id: 'a11yReset', type: 'action', icon: 'refresh-outline', label: 'Erişilebilirlik ayarlarını sıfırla', desc: 'Yazı boyutu, kontrast ve hareket ayarlarını varsayılana döndürür', keywords: 'erişilebilirlik sıfırla reset varsayılan kolay kullanım', onPress: onResetAccessibility });
+    add('access', 'Yazı ve düğme boyutu', { id: 'presets', type: 'custom', label: 'Kolay kullanım', keywords: 'kolay kullanım büyük yazı yaşlı normal çok büyük font punto', render: () => <PresetTiles currentPreset={currentPreset} onSelect={applyPreset} /> });
+    add('access', 'Yazı ve düğme boyutu', { id: 'fontSizeDetail', type: 'link', icon: 'text-outline', label: 'Okuma yazısı boyutu', desc: "Kur'an, dua ve tesbihat yazıları", value: readingFontLabel, keywords: 'yazı boyut font punto', onPress: () => setPicker('fontScale') });
+    add('access', 'Okuma ve görme', { id: 'highContrast', type: 'switch', icon: 'contrast-outline', label: 'Yüksek kontrast', desc: 'Metin ve arka plan farkını artırır', keywords: 'okunabilir görme', on: highContrast, onChange: onToggleHighContrast });
+    add('access', 'Okuma ve görme', { id: 'dyslexiaFont', type: 'switch', icon: 'text-outline', label: 'Okuma dostu yazı tipi', desc: 'Disleksi için tasarlanmış OpenDyslexic', keywords: 'disleksi font yazı tipi', on: dyslexiaFont, onChange: onToggleDyslexia });
+    add('access', 'Okuma ve görme', { id: 'largeTargets', type: 'switch', icon: 'hand-right-outline', label: 'Büyük dokunma hedefleri', desc: 'Düğmeleri ve satırları büyütür', keywords: 'buton hedef dokunma', on: largeTouchTargets, onChange: onToggleLargeTargets });
+    add('access', 'Okuma ve görme', { id: 'simpleMode', type: 'switch', icon: 'accessibility-outline', label: 'Basit mod', desc: 'Çok büyük yazılar ve sade arayüz', keywords: 'yaşlı sade kolay', on: isSimpleMode, onChange: onSimpleModeToggle });
+    add('access', 'Hareket ve dokunma', { id: 'reduceMotion', type: 'switch', icon: 'flash-off-outline', label: 'Animasyonları azalt', desc: 'Geçişleri ve hareketleri sadeleştirir', keywords: 'reduce motion hareket', on: reduceMotion, onChange: onToggleReduceMotion });
+    add('access', 'Hareket ve dokunma', { id: 'haptic', type: 'switch', icon: 'hand-left-outline', label: 'Titreşimli geri bildirim', desc: 'Dokunuşlarda hafif titreşim', keywords: 'haptic dokunma', on: globalHaptic !== false, onChange: onToggleHaptic });
+    add('access', 'Sıfırlama', { id: 'a11yReset', type: 'action', icon: 'refresh-outline', label: 'Erişilebilirlik ayarlarını sıfırla', desc: 'Yazı boyutu, kontrast ve hareket ayarlarını varsayılana döndürür', keywords: 'erişilebilirlik sıfırla reset varsayılan kolay kullanım', onPress: onResetAccessibility });
 
-  add('data', 'Gizlilik', { id: 'privacy', type: 'link', icon: 'shield-checkmark-outline', label: 'Gizlilik politikası', desc: 'Hiçbir kişisel veri toplanmaz', value: 'Veri toplanmıyor', keywords: 'privacy veri toplama', onPress: () => setInfo('privacy') });
-  add('data', 'Depolama', { id: 'clearCache', type: 'action', icon: 'trash-outline', label: 'Önbelleği temizle', desc: 'Çevrimdışı verileri siler, tercihlerinizi korur', keywords: 'cache sil', onPress: clearCache });
-  add('data', 'Tehlikeli işlem', { id: 'resetAll', type: 'action', icon: 'warning-outline', danger: true, label: resetting ? 'Sıfırlanıyor…' : 'Tüm verileri sıfırla', desc: 'Uygulamayı ilk haline döndürür. Geri alınamaz.', keywords: 'reset fabrika ayar sil', busy: resetting, disabled: resetting, onPress: handleResetAll });
+    add('data', 'Gizlilik', { id: 'privacy', type: 'link', icon: 'shield-checkmark-outline', label: 'Gizlilik politikası', desc: 'Hiçbir kişisel veri toplanmaz', value: 'Veri toplanmıyor', keywords: 'privacy veri toplama', onPress: () => setInfo('privacy') });
+    add('data', 'Depolama', { id: 'clearCache', type: 'action', icon: 'trash-outline', label: 'Önbelleği temizle', desc: 'Çevrimdışı verileri siler, tercihlerinizi korur', keywords: 'cache sil', onPress: clearCache });
+    add('data', 'Tehlikeli işlem', { id: 'resetAll', type: 'action', icon: 'warning-outline', danger: true, label: resetting ? 'Sıfırlanıyor…' : 'Tüm verileri sıfırla', desc: 'Uygulamayı ilk haline döndürür. Geri alınamaz.', keywords: 'reset fabrika ayar sil', busy: resetting, disabled: resetting, onPress: handleResetAll });
 
-  add('about', 'Uygulama', { id: 'about', type: 'link', icon: 'apps-outline', label: 'Uygulama hakkında', value: `${APP_NAME} · v${APP_VERSION}`, plain: true, keywords: 'sürüm versiyon', onPress: () => setInfo('about') });
-  add('about', 'Uygulama', { id: 'changelog', type: 'link', icon: 'list-outline', label: 'Değişiklik geçmişi', value: `v${APP_VERSION}`, plain: true, keywords: 'changelog sürüm notları', onPress: () => setInfo('changelog') });
-  add('about', 'Uygulama', { id: 'credits', type: 'link', icon: 'heart-outline', label: 'Teşekkürler', desc: 'Açık kaynak servisler ve katkıda bulunanlar', keywords: 'kaynaklar credits katkı', onPress: () => setInfo('credits') });
-  add('about', 'Destek', { id: 'feedback', type: 'action', icon: 'chatbubble-ellipses-outline', label: 'Geri bildirim gönder', desc: 'Düşüncelerinizi ve önerilerinizi paylaşın', keywords: 'öneri hata şikayet', onPress: handleFeedback });
+    add('about', 'Uygulama', { id: 'about', type: 'link', icon: 'apps-outline', label: 'Uygulama hakkında', value: `${APP_NAME} · v${APP_VERSION}`, plain: true, keywords: 'sürüm versiyon', onPress: () => setInfo('about') });
+    add('about', 'Uygulama', { id: 'changelog', type: 'link', icon: 'list-outline', label: 'Değişiklik geçmişi', value: `v${APP_VERSION}`, plain: true, keywords: 'changelog sürüm notları', onPress: () => setInfo('changelog') });
+    add('about', 'Uygulama', { id: 'credits', type: 'link', icon: 'heart-outline', label: 'Teşekkürler', desc: 'Açık kaynak servisler ve katkıda bulunanlar', keywords: 'kaynaklar credits katkı', onPress: () => setInfo('credits') });
+    add('about', 'Destek', { id: 'feedback', type: 'action', icon: 'chatbubble-ellipses-outline', label: 'Geri bildirim gönder', desc: 'Düşüncelerinizi ve önerilerinizi paylaşın', keywords: 'öneri hata şikayet', onPress: handleFeedback });
+
+    return list;
+  }, [
+    locationLabel, openLocationModal, selectedDataSource.name, selectedMethodName, tuneMinutes,
+    notifEnabled, onNotificationsToggle, reminderText, widgetsConfig, selectedThemeMode.name,
+    accentName, homePrefs, setHomePrefWithFeedback, toggleWidget, selectedQuranSource.label,
+    readingModeLabel, showArabic, toggleShowArabic, mealEdition, tesbihatAutoAdvance,
+    setTesbihatAutoAdvance, currentPreset, applyPreset, readingFontLabel, highContrast,
+    onToggleHighContrast, dyslexiaFont, onToggleDyslexia, largeTouchTargets, onToggleLargeTargets,
+    isSimpleMode, onSimpleModeToggle, reduceMotion, onToggleReduceMotion, globalHaptic,
+    onToggleHaptic, onResetAccessibility, resetting,
+  ]);
 
   const searching = searchQuery.trim().length > 0;
   const q = normalize(searchQuery.trim());
@@ -1808,6 +2081,33 @@ export default function SettingsScreen({ onBack }) {
     setPage(catId);
   }, []);
 
+  /* Konum listesi verisi */
+  const locationListData = useMemo(() => {
+    if (locationRegion === 'tr') return search.results;
+    return search.results.length > 0 ? search.results : (query.trim().length < 2 ? POPULAR_ABROAD_PLACES : []);
+  }, [locationRegion, search.results, query]);
+
+  const rowHeight = largeTouchTargets ? 82 : 66;
+  const getLocationItemLayout = useCallback((_, index) => ({
+    length: rowHeight,
+    offset: rowHeight * index,
+    index,
+  }), [rowHeight]);
+
+  const renderLocationItem = useCallback(({ item, index }) => {
+    const isPopularAbroad = locationRegion === 'abroad' && search.results.length === 0;
+    const selected = !item.isCityGroup && location?.city === item.city && location?.district === item.district;
+    return (
+      <LocationRowItem
+        item={item}
+        selected={selected}
+        isPopularAbroad={isPopularAbroad}
+        isLast={index === locationListData.length - 1}
+        onSelect={handleSelectPlace}
+      />
+    );
+  }, [locationRegion, search.results.length, location?.city, location?.district, locationListData.length, handleSelectPlace]);
+
   return (
     <UI.Provider value={ui}>
       <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top', 'left', 'right']}>
@@ -1830,6 +2130,7 @@ export default function SettingsScreen({ onBack }) {
             >
               <Ionicons name="arrow-back" size={20} color={theme.text} />
             </Tap>
+
             <View style={{ flex: 1, marginLeft: 14 }}>
               <Text
                 accessibilityRole="header"
@@ -1911,9 +2212,7 @@ export default function SettingsScreen({ onBack }) {
                     !hc && SHADOW_RAISED,
                   ]}>
                     <View style={styles.heroTop}>
-                      <View style={[styles.heroIconWrap, { backgroundColor: hc ? theme.text : `${theme.primary}1F` }]}>
-                        <Ionicons name={greeting.icon} size={24} color={hc ? theme.background : theme.primary} />
-                      </View>
+                      <AppLogoBadge size={54} theme={theme} hc={hc} />
                       <View style={{ flex: 1, marginLeft: 14 }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                           <Text style={{ color: theme.text, fontSize: ui.fs(19), fontWeight: '800', letterSpacing: -0.3 }}>
@@ -1927,7 +2226,7 @@ export default function SettingsScreen({ onBack }) {
                               styles.versionBadgeText,
                               { color: hc ? '#000000' : theme.primary },
                             ]}>
-                              v1.0
+                              {APP_NAME} v1.0
                             </Text>
                           </View>
                         </View>
@@ -1942,7 +2241,7 @@ export default function SettingsScreen({ onBack }) {
                         icon="location"
                         label="Konum"
                         value={location?.district || 'Seç'}
-                        onPress={() => setLocationModal(true)}
+                        onPress={openLocationModal}
                       />
                       <HeroTile
                         icon={notifEnabled ? 'notifications' : 'notifications-off'}
@@ -1980,12 +2279,15 @@ export default function SettingsScreen({ onBack }) {
                     ))}
                   </View>
 
-                  <Text style={{
-                    color: hc ? theme.text : theme.textMuted, fontSize: ui.fs(11.5),
-                    textAlign: 'center', marginTop: 12, fontWeight: '500',
-                  }}>
-                    {APP_NAME} v{APP_VERSION} · Reklamsız · Açık kaynak
-                  </Text>
+                  <View style={styles.footerBrand}>
+                    <AppLogoBadge size={22} theme={theme} hc={hc} />
+                    <Text style={{
+                      color: hc ? theme.text : theme.textMuted, fontSize: ui.fs(11.5),
+                      fontWeight: '600',
+                    }}>
+                      {APP_NAME} v{APP_VERSION} · Reklamsız · Açık kaynak
+                    </Text>
+                  </View>
                 </>
               )}
             </ScrollView>
@@ -1994,6 +2296,7 @@ export default function SettingsScreen({ onBack }) {
 
         <Toast message={toast.message} visible={toast.visible} />
 
+        {/* PICKER SHEET */}
         <Sheet visible={!!activePicker} onClose={() => setPicker(null)} title={activePicker?.title ?? ''} subtitle={activePicker?.subtitle}>
           {activePicker ? (
             <View style={[styles.card, { backgroundColor: theme.surface, borderColor: border, borderWidth: hc ? 2 : 1 }, !hc && SHADOW_SOFT]}>
@@ -2004,38 +2307,105 @@ export default function SettingsScreen({ onBack }) {
           ) : null}
         </Sheet>
 
+        {/* KONUM SEÇME SHEET — Türkiye (Offline 81 İl & İlçe) / Yurt Dışı */}
         <Sheet visible={locationModal} onClose={() => setLocationModal(false)} title="Konum" subtitle="Namaz vakitleri seçtiğiniz yere göre hesaplanır" scroll={false} tall>
+          {/* Bölge Seçici: Türkiye / Yurt Dışı */}
+          <View style={[styles.themeTabs, {
+            backgroundColor: theme.surfaceElevated,
+            borderColor: hc ? theme.text : border,
+            borderWidth: hc ? 2 : 1,
+            marginBottom: 12,
+          }]}>
+            {[
+              { id: 'tr', label: 'Türkiye (81 İl)', icon: 'location' },
+              { id: 'abroad', label: 'Yurt Dışı', icon: 'earth-outline' },
+            ].map((tab) => {
+              const active = locationRegion === tab.id;
+              return (
+                <Tap
+                  key={tab.id}
+                  onPress={() => {
+                    hapticImpact('light');
+                    setLocationRegion(tab.id);
+                    setSelectedCityRef(null);
+                    setQuery('');
+                    setSearch({ status: 'idle', results: [] });
+                  }}
+                  role="tab"
+                  state={{ selected: active }}
+                  label={tab.label}
+                  style={[styles.themeTab, active && { backgroundColor: theme.surface }]}
+                  pressedStyle={{ opacity: 0.9 }}
+                >
+                  <Ionicons name={tab.icon} size={15} color={active ? theme.primary : (hc ? theme.text : theme.textMuted)} />
+                  <Text style={{
+                    color: active ? theme.primary : (hc ? theme.text : theme.textMuted),
+                    fontSize: ui.fs(13.5), fontWeight: '700', marginLeft: 7,
+                  }}>
+                    {tab.label}
+                  </Text>
+                </Tap>
+              );
+            })}
+          </View>
+
           <Tap
             onPress={handleAutoGPS}
             disabled={detectingLocation}
             label="Mevcut konumumu kullan"
             style={[styles.gpsBtn, {
               backgroundColor: theme.primary,
-              minHeight: largeTouchTargets ? 60 : 54,
+              minHeight: largeTouchTargets ? 56 : 50,
             }, !hc && SHADOW_SOFT]}
           >
             {detectingLocation
               ? <ActivityIndicator size="small" color={onPrimaryColor} />
-              : <Ionicons name="navigate" size={19} color={onPrimaryColor} />}
-            <Text style={{ color: onPrimaryColor, fontSize: ui.fs(15), fontWeight: '700' }}>
-              {detectingLocation ? 'Konum aranıyor…' : 'Mevcut konumumu kullan'}
+              : <Ionicons name="navigate" size={18} color={onPrimaryColor} />}
+            <Text style={{ color: onPrimaryColor, fontSize: ui.fs(14.5), fontWeight: '700' }}>
+              {detectingLocation ? 'Konum aranıyor…' : 'Mevcut konumumu kullan (GPS)'}
             </Text>
           </Tap>
+
+          {/* Seçili İl Geri Dönüş Çubuğu */}
+          {locationRegion === 'tr' && selectedCityRef ? (
+            <Tap
+              onPress={() => {
+                hapticImpact('light');
+                setSelectedCityRef(null);
+                setQuery('');
+              }}
+              label="Tüm illere dön"
+              style={[styles.cityBreadcrumb, {
+                backgroundColor: `${theme.primary}14`,
+                borderColor: hc ? theme.text : `${theme.primary}40`,
+              }]}
+            >
+              <Ionicons name="arrow-back" size={16} color={theme.primary} />
+              <Text style={{ color: theme.primary, fontSize: ui.fs(13), fontWeight: '800', flex: 1 }}>
+                {selectedCityRef.city} İlçeleri · Tüm İllere Dön
+              </Text>
+            </Tap>
+          ) : null}
+
           <View style={[
             styles.searchField,
             {
               backgroundColor: theme.surface, borderColor: hc ? theme.text : border,
-              borderWidth: hc ? 2 : 1, marginVertical: 16, minHeight: largeTouchTargets ? 58 : 52,
+              borderWidth: hc ? 2 : 1, marginVertical: 12, minHeight: largeTouchTargets ? 56 : 50,
             },
           ]}>
             <Ionicons name="search" size={18} color={hc ? theme.text : dim} />
             <TextInput
               value={query} onChangeText={setQuery}
-              placeholder="Şehir veya ülke ara (örn. Gebze, Berlin)"
+              placeholder={
+                locationRegion === 'tr'
+                  ? (selectedCityRef ? `${selectedCityRef.city} içinde ilçe ara…` : 'İl veya ilçe ara (örn. Gebze, Kadıköy)…')
+                  : 'Şehir veya ülke ara (örn. Berlin, Mekke)…'
+              }
               placeholderTextColor={theme.textMuted}
               style={[{ flex: 1, color: theme.text, fontSize: ui.fs(15), paddingVertical: 10 }, IS_WEB && { outlineStyle: 'none' }]}
               autoCorrect={false} autoCapitalize="words" returnKeyType="search"
-              accessibilityLabel="Şehir ara"
+              accessibilityLabel="Konum ara"
             />
             {!!query && (
               <Tap onPress={() => setQuery('')} label="Aramayı temizle" hitSlop={10}>
@@ -2043,47 +2413,36 @@ export default function SettingsScreen({ onBack }) {
               </Tap>
             )}
           </View>
+
           <FlatList
-            data={query.trim().length < 2 ? POPULAR_PLACES : search.results}
+            data={locationListData}
             keyExtractor={(item) => item.id}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
-            ListHeaderComponent={query.trim().length < 2 ? (
-              <SectionTitle title="Sık seçilenler" />
-            ) : null}
-            renderItem={({ item, index }) => {
-              const popular = query.trim().length < 2;
-              const selected = location?.city === item.city && location?.district === item.district;
-              const count = popular ? POPULAR_PLACES.length : search.results.length;
-              return (
-                <Tap
-                  onPress={() => handleSelectPlace(item)}
-                  label={`${item.title}${item.subtitle ? ', ' + item.subtitle : ''}${selected ? '. Seçili' : ''}`}
-                  pressedStyle={{ backgroundColor: `${theme.primary}0D` }}
-                  style={[styles.row, largeTouchTargets && styles.rowBig]}
-                >
-                  <View style={{ marginRight: 14 }}>
-                    <IconChip name={popular ? 'star-outline' : 'location-outline'} size={38} tone="accent" />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ color: selected ? theme.primary : theme.text, fontSize: ui.fs(15), fontWeight: '700' }} numberOfLines={1}>
-                      {item.title}
-                    </Text>
-                    {!!item.subtitle && (
-                      <Text style={{ color: hc ? theme.text : dim, fontSize: ui.fs(12.5), marginTop: 3 }} numberOfLines={1}>
-                        {item.subtitle}
-                      </Text>
-                    )}
-                  </View>
-                  {selected
-                    ? <Ionicons name="checkmark-circle" size={22} color={theme.primary} />
-                    : <Ionicons name="chevron-forward" size={17} color={hc ? theme.text : theme.textMuted} />}
-                  {index !== count - 1 ? (
-                    <View style={[styles.divider, { left: 56, backgroundColor: hc ? theme.text : border }]} />
-                  ) : null}
-                </Tap>
-              );
-            }}
+            initialNumToRender={12}
+            maxToRenderPerBatch={14}
+            windowSize={5}
+            removeClippedSubviews={!IS_WEB}
+            getItemLayout={getLocationItemLayout}
+            ListHeaderComponent={
+              locationRegion === 'tr' ? (
+                <SectionTitle
+                  title={
+                    selectedCityRef
+                      ? `${selectedCityRef.city} İlçeleri`
+                      : (query.trim() ? 'Arama Sonuçları (Çevrimdışı)' : 'Tüm İller (81 İl · Çevrimdışı)')
+                  }
+                  count={locationListData.length}
+                />
+              ) : (
+                search.results.length > 0 && query.trim().length >= 2 ? (
+                  <SectionTitle title="Dünya Genelinde Sonuçlar" count={search.results.length} />
+                ) : (
+                  <SectionTitle title="Popüler Yurt Dışı Şehirleri" />
+                )
+              )
+            }
+            renderItem={renderLocationItem}
             ListEmptyComponent={
               <View style={{ padding: 32, alignItems: 'center', gap: 12 }}>
                 {search.status === 'loading' && (
@@ -2103,9 +2462,9 @@ export default function SettingsScreen({ onBack }) {
                     </Tap>
                   </>
                 )}
-                {search.status === 'done' && (
+                {search.status === 'done' && locationListData.length === 0 && (
                   <Text style={{ color: hc ? theme.text : dim, fontSize: ui.fs(13.5), textAlign: 'center', lineHeight: ui.fs(20) }}>
-                    “{query.trim()}” için sonuç bulunamadı. Yazımı kontrol edin.
+                    “{query.trim()}” için sonuç bulunamadı.
                   </Text>
                 )}
               </View>
@@ -2113,6 +2472,7 @@ export default function SettingsScreen({ onBack }) {
           />
         </Sheet>
 
+        {/* TEMA SHEET */}
         <Sheet visible={themeModal} onClose={() => setThemeModal(false)} title="Tema ve renk" subtitle="Uygulamanın görünümünü kişiselleştirin">
           <View style={[styles.themeTabs, {
             backgroundColor: theme.surfaceElevated,
@@ -2233,6 +2593,7 @@ export default function SettingsScreen({ onBack }) {
           )}
         </Sheet>
 
+        {/* BİLGİ SHEET */}
         <Sheet
           visible={!!info}
           onClose={() => setInfo(null)}
@@ -2246,9 +2607,7 @@ export default function SettingsScreen({ onBack }) {
                 { backgroundColor: theme.surface, borderColor: hc ? theme.text : border, borderWidth: hc ? 2 : 1 },
                 !hc && SHADOW_SOFT,
               ]}>
-                <View style={[styles.aboutIconWrap, { backgroundColor: hc ? theme.text : `${theme.primary}1F` }]}>
-                  <Ionicons name="moon" size={38} color={hc ? theme.background : theme.primary} />
-                </View>
+                <AppLogoBadge size={84} theme={theme} hc={hc} />
                 <Text style={{ color: theme.text, fontSize: ui.fs(22), fontWeight: '800', marginTop: 14, letterSpacing: -0.3 }}>
                   {APP_NAME}
                 </Text>
@@ -2354,14 +2713,13 @@ const styles = StyleSheet.create({
 
   hero: { borderRadius: 26, padding: 18, marginBottom: 22, overflow: 'hidden' },
   heroTop: { flexDirection: 'row', alignItems: 'center' },
-  heroIconWrap: { width: 54, height: 54, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   versionBadge: {
-    paddingHorizontal: 6,
+    paddingHorizontal: 7,
     paddingVertical: 2,
     borderRadius: 6,
   },
   versionBadgeText: {
-    fontSize: 9,
+    fontSize: 9.5,
     fontWeight: '900',
     letterSpacing: 0.3,
   },
@@ -2374,6 +2732,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between', overflow: 'hidden',
   },
   hubIconWrap: { width: 44, height: 44, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
+
+  footerBrand: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 12,
+  },
 
   sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12, marginLeft: 2, marginRight: 2 },
   sectionPill: { paddingHorizontal: 11, paddingVertical: 6, borderRadius: 10 },
@@ -2415,13 +2781,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22, paddingTop: 12,
   },
   sheetHandle: { width: 42, height: 5, borderRadius: 3, alignSelf: 'center', marginBottom: 16, opacity: 0.7 },
-  sheetHeader: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 20 },
+  sheetHeader: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 16 },
   closeBtn: { alignItems: 'center', justifyContent: 'center' },
 
   gpsBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, borderRadius: 18,
   },
-  primaryBtn: { minHeight: 56, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  cityBreadcrumb: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
 
   themeTabs: {
     flexDirection: 'row', padding: 4, borderRadius: 16, marginBottom: 18, gap: 4,
@@ -2457,7 +2832,6 @@ const styles = StyleSheet.create({
   colorCircle: { width: 52, height: 52, borderRadius: 26, justifyContent: 'center', alignItems: 'center' },
 
   aboutHero: { alignItems: 'center', padding: 26, borderRadius: 24 },
-  aboutIconWrap: { width: 84, height: 84, borderRadius: 26, alignItems: 'center', justifyContent: 'center' },
   note: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     padding: 16, borderRadius: 18, borderWidth: 1, marginTop: 16,

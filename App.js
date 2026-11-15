@@ -19,6 +19,7 @@ import React, {
 } from 'react';
 
 import {
+  AppState,
   BackHandler,
   Platform,
   StatusBar,
@@ -46,7 +47,6 @@ import { useAppStore, useTheme } from './src/store/useAppStore';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import HomeScreen from './src/screens/HomeScreen';
 
-// Home arkada canlı kalır; App her state değiştirdiğinde gereksiz yere yeniden çizilmesin
 const MemoHome = React.memo(HomeScreen);
 
 /* ================================================================
@@ -55,7 +55,7 @@ const MemoHome = React.memo(HomeScreen);
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 /* ================================================================
-   Font Haritası (Açılışı Yavaşlatmayacak Kritik Set)
+   Font Haritası
    ================================================================ */
 const ESSENTIAL_FONTS = {
   'Lexend-Regular': require('./assets/fonts/Lexend-Regular.ttf'),
@@ -126,7 +126,7 @@ class ErrorBoundary extends React.Component {
         <SafeAreaView
           style={[
             styles.errorContainer,
-            { backgroundColor: theme?.background ?? '#0B1511' },
+            { backgroundColor: theme?.background ?? '#0F1115' },
           ]}
         >
           <Ionicons
@@ -167,11 +167,17 @@ function HydrationScreen({ theme }) {
     return () => animation.stop();
   }, [fade]);
 
-  const isDark = theme.mode === 'dark' || theme.mode === 'oled';
+  const isLight = Boolean(
+    theme.isLight ||
+      theme.mode === 'light' ||
+      theme.mode === 'modernLight' ||
+      theme.mode === 'sepia' ||
+      theme.mode === 'sand'
+  );
 
   return (
     <SafeAreaView style={[styles.hydrationContainer, { backgroundColor: theme.background }]}>
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+      <StatusBar barStyle={isLight ? 'dark-content' : 'light-content'} />
       <Animated.View style={{ alignItems: 'center', opacity: fade }}>
         <View
           style={[
@@ -184,7 +190,7 @@ function HydrationScreen({ theme }) {
         >
           <MaterialCommunityIcons name="star-crescent" size={44} color={theme.primary} />
         </View>
-        <Text style={[styles.hydrationBrand, { color: theme.text }]}>NİDA</Text>
+        <Text style={[styles.hydrationBrand, { color: theme.text }]}>HİLAL</Text>
         <ActivityIndicator size="small" color={theme.primary} style={styles.loadingIndicator} />
       </Animated.View>
     </SafeAreaView>
@@ -201,7 +207,7 @@ export default function App() {
   const theme = useTheme();
 
   /* ---------------- Hızlı Font Yükleme ---------------- */
-  const [essentialLoaded] = Font.useFonts(ESSENTIAL_FONTS);
+  Font.useFonts(ESSENTIAL_FONTS);
 
   /* ---------------- Store Hydration ---------------- */
   const [hydrated, setHydrated] = useState(() => useAppStore.persist.hasHydrated());
@@ -227,7 +233,6 @@ export default function App() {
     };
   }, []);
 
-  /* ---------------- Hazır mı? ---------------- */
   const ready = hydrated;
 
   /* ---------------- Splash Gizle ---------------- */
@@ -237,7 +242,7 @@ export default function App() {
     }
   }, [ready]);
 
-  /* ---------------- Ek fontlar + ekran ısıtma (açılış bittikten sonra) ---------------- */
+  /* ---------------- Ek fontlar + ekran ısıtma ---------------- */
   useEffect(() => {
     if (!hydrated) return undefined;
     const fontTimer = setTimeout(() => {
@@ -246,7 +251,6 @@ export default function App() {
     return () => clearTimeout(fontTimer);
   }, [hydrated]);
 
-  // Ağır ekranların modülleri ilk dokunuşta değil, boşta iken yüklenir
   useEffect(() => {
     if (!hydrated || isFirstLaunch) return undefined;
     const loaders = [
@@ -291,7 +295,6 @@ export default function App() {
     });
   }, []);
 
-  // Home için sabit callback'ler
   const homeHandlers = useMemo(() => ({
     onOpenQibla: () => navigate(SCREENS.qibla),
     onOpenSettings: () => navigate(SCREENS.settings),
@@ -304,12 +307,20 @@ export default function App() {
     onOpenLocation: () => navigate(SCREENS.settings),
   }), [navigate]);
 
-  /* ---------------- Dinamik Tema Tick ---------------- */
+  /* ---------------- Dinamik Tema Canlı Saat & AppState Senkronu ---------------- */
   const [, setThemeTick] = useState(0);
   useEffect(() => {
     if (themeMode !== 'dynamic') return undefined;
     const interval = setInterval(() => setThemeTick((v) => v + 1), 60 * 1000);
-    return () => clearInterval(interval);
+    const appStateSub = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        setThemeTick((v) => v + 1);
+      }
+    });
+    return () => {
+      clearInterval(interval);
+      appStateSub.remove();
+    };
   }, [themeMode]);
 
   /* ---------------- Android Geri Tuşu ---------------- */
@@ -333,10 +344,14 @@ export default function App() {
   }, []);
 
   /* ---------------- Tema Yardımcıları ---------------- */
-  const statusBarStyle =
-    theme.mode === 'light' || theme.mode === 'modernLight'
-      ? 'dark-content'
-      : 'light-content';
+  const isLightTheme = Boolean(
+    theme.isLight ||
+      theme.mode === 'light' ||
+      theme.mode === 'modernLight' ||
+      theme.mode === 'sepia' ||
+      theme.mode === 'sand'
+  );
+  const statusBarStyle = isLightTheme ? 'dark-content' : 'light-content';
 
   /* ---------------- Yükleme Ekranı ---------------- */
   if (!ready) {
@@ -351,7 +366,7 @@ export default function App() {
 
   const homeVisible = !isFirstLaunch && currentScreen === SCREENS.home;
 
-  /* ---------------- Ekran Yönlendirici (Lazy Require) ---------------- */
+  /* ---------------- Ekran Yönlendirici ---------------- */
   const renderScreen = () => {
     if (isFirstLaunch) {
       return <OnboardingScreen />;

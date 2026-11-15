@@ -1,5 +1,6 @@
 // src/services/prayerNotifications.js
 import { Platform } from 'react-native';
+import { useAppStore } from '../store/useAppStore';
 
 const PRAYER_NOTIFICATION_TYPE = 'prayer_reminder';
 const PRAYER_CHANNEL_ID = 'prayer-reminders-v2';
@@ -240,6 +241,9 @@ async function scheduleSinglePrayerNotification(module, prayer, options = {}) {
     return false;
   }
 
+  const isSoundEnabled = useAppStore?.getState?.()?.widgetsConfig?.notificationSound !== false &&
+    useAppStore?.getState?.()?.notificationSound !== false;
+
   const content = {
     title:
       offset > 0
@@ -254,12 +258,11 @@ async function scheduleSinglePrayerNotification(module, prayer, options = {}) {
       prayerName: prayer.name,
       offsetMinutes: offset,
     },
+    // Cihazın varsayılan bildirim sesini kullan
+    sound: isSoundEnabled ? 'default' : false,
   };
 
-  // iOS: 'default' natively tanınıyor. Android: channel zaten hallediyor.
-  if (Platform.OS === 'ios') {
-    content.sound = 'default';
-  } else if (Platform.OS === 'android') {
+  if (Platform.OS === 'android') {
     content.channelId = PRAYER_CHANNEL_ID;
   }
 

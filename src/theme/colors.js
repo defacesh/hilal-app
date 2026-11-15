@@ -1,19 +1,35 @@
 // src/theme/colors.js
 
 /* ================================================================
-   WCAG 2.1 AA KONTRAST YARDIMCI FONKSİYONLARI
+   WCAG 2.1 AA KONTRAST & RENK ENTERPOLASYON YARDIMCILARI
    ================================================================ */
-const getLuminance = (hex) => {
-  const cleanHex = String(hex || '#000000').replace('#', '');
-  const r = parseInt(cleanHex.substring(0, 2), 16) / 255;
-  const g = parseInt(cleanHex.substring(2, 4), 16) / 255;
-  const b = parseInt(cleanHex.substring(4, 6), 16) / 255;
+const parseHex = (hex) => {
+  const clean = String(hex || '#000000').replace('#', '');
+  return {
+    r: parseInt(clean.substring(0, 2), 16) || 0,
+    g: parseInt(clean.substring(2, 4), 16) || 0,
+    b: parseInt(clean.substring(4, 6), 16) || 0,
+  };
+};
 
-  const a = [r, g, b].map((v) =>
+const toHex = (n) =>
+  Math.max(0, Math.min(255, Math.round(n)))
+    .toString(16)
+    .padStart(2, '0');
+
+export const interpolateHex = (hex1, hex2, factor = 0.5) => {
+  const t = Math.max(0, Math.min(1, factor));
+  const c1 = parseHex(hex1);
+  const c2 = parseHex(hex2);
+  return `#${toHex(c1.r + (c2.r - c1.r) * t)}${toHex(c1.g + (c2.g - c1.g) * t)}${toHex(c1.b + (c2.b - c1.b) * t)}`;
+};
+
+const getLuminance = (hex) => {
+  const { r: rawR, g: rawG, b: rawB } = parseHex(hex);
+  const [r, g, b] = [rawR / 255, rawG / 255, rawB / 255].map((v) =>
     v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)
   );
-
-  return a[0] * 0.2126 + a[1] * 0.7152 + a[2] * 0.0722;
+  return r * 0.2126 + g * 0.7152 + b * 0.0722;
 };
 
 export const getContrastRatio = (hex1, hex2) => {
@@ -25,9 +41,58 @@ export const getContrastRatio = (hex1, hex2) => {
 };
 
 /* ================================================================
+   VARSAYILAN SABİTLER (Koyu: Grafen | Aydınlık: Fildişi | Renk: Türbe Yeşili)
+   ================================================================ */
+export const DEFAULT_LIGHT_THEME = 'light'; // Fildişi
+export const DEFAULT_DARK_THEME = 'obsidian'; // Grafen
+export const DEFAULT_ACCENT_COLOR = 'emerald'; // Türbe Yeşili
+
+/* ================================================================
    VURGU RENKLERİ (ACCENT COLORS) - WCAG AA UYUMLU PALETLER
    ================================================================ */
 export const ACCENT_COLORS = {
+  /* --- Klasik & Geleneksel (Varsayılan: Türbe Yeşili / Emerald) --- */
+  emerald: {
+    id: 'emerald',
+    name: 'Türbe Yeşili',
+    primary: '#059669',
+    dark: '#047857',
+    light: '#A7F3D0',
+    glow: 'rgba(5, 150, 105, 0.20)',
+  },
+  amber: {
+    id: 'amber',
+    name: 'Kehribar',
+    primary: '#B88A32',
+    dark: '#78350F',
+    light: '#FDE68A',
+    glow: 'rgba(184, 138, 50, 0.20)',
+  },
+  gold: {
+    id: 'gold',
+    name: 'Hilal Gold',
+    primary: '#B88A32',
+    dark: '#78350F',
+    light: '#FDE68A',
+    glow: 'rgba(184, 138, 50, 0.20)',
+  },
+  sapphire: {
+    id: 'sapphire',
+    name: 'Safir',
+    primary: '#2563EB',
+    dark: '#1E40AF',
+    light: '#BFDBFE',
+    glow: 'rgba(37, 99, 235, 0.20)',
+  },
+  teal: {
+    id: 'teal',
+    name: 'Gökyüzü',
+    primary: '#0D9488',
+    dark: '#115E59',
+    light: '#99F6E4',
+    glow: 'rgba(13, 148, 136, 0.20)',
+  },
+
   /* --- Modern & Minimalist Pastel --- */
   nordic: {
     id: 'nordic',
@@ -102,48 +167,6 @@ export const ACCENT_COLORS = {
     dark: '#064E3B',
     light: '#D1FAE5',
     glow: 'rgba(5, 150, 105, 0.20)',
-  },
-
-  /* --- Klasik & Geleneksel --- */
-  emerald: {
-    id: 'emerald',
-    name: 'Zümrüt',
-    primary: '#059669',
-    dark: '#047857',
-    light: '#A7F3D0',
-    glow: 'rgba(5, 150, 105, 0.20)',
-  },
-  amber: {
-    id: 'amber',
-    name: 'Kehribar',
-    primary: '#B88A32',
-    dark: '#78350F',
-    light: '#FDE68A',
-    glow: 'rgba(184, 138, 50, 0.20)',
-  },
-  gold: {
-    id: 'gold',
-    name: 'Hilal Gold',
-    primary: '#B88A32',
-    dark: '#78350F',
-    light: '#FDE68A',
-    glow: 'rgba(184, 138, 50, 0.20)',
-  },
-  sapphire: {
-    id: 'sapphire',
-    name: 'Safir',
-    primary: '#2563EB',
-    dark: '#1E40AF',
-    light: '#BFDBFE',
-    glow: 'rgba(37, 99, 235, 0.20)',
-  },
-  teal: {
-    id: 'teal',
-    name: 'Gökyüzü',
-    primary: '#0D9488',
-    dark: '#115E59',
-    light: '#99F6E4',
-    glow: 'rgba(13, 148, 136, 0.20)',
   },
 
   /* --- Bozkır & Sıcak Toprak Tonları --- */
@@ -308,12 +331,54 @@ export const ACCENT_COLORS = {
 };
 
 /* ================================================================
-   TEMEL TEMALAR — TEK KAYNAK (SINGLE SOURCE OF TRUTH)
-   Yeni tema eklemek için sadece buraya yeni bir obje eklemeniz yeterlidir:
-   - compatibleAccents tanımlanmazsa tüm vurgu renkleriyle uyumlu olur.
-   - Açık/koyu modu arka plan parlaklığından (luminance) otomatik algılanır.
+   TEMEL TEMALAR — VARSAYILANLAR: FİLDİŞİ (light) & GRAFEN (obsidian)
    ================================================================ */
 export const BASE_THEMES = {
+  light: {
+    mode: 'light',
+    name: 'Fildişi',
+    icon: 'sunny-outline',
+    desc: 'Varsayılan sıcak aydınlık',
+    background: '#F7F3E8',
+    surface: '#FFFDF7',
+    surfaceElevated: '#F0EBDD',
+    border: '#D8D0BA',
+    text: '#172B23',
+    textDim: '#3D4D45',
+    textMuted: '#5C6C63',
+    compatibleAccents: [
+      'emerald', 'nordic', 'mint', 'coral', 'lavender', 'peach',
+      'amber', 'gold', 'sapphire', 'teal',
+      'bronze', 'copper', 'clay', 'ruby', 'rose', 'saffron', 'terracotta',
+      'forest', 'sage', 'moss', 'lime',
+      'indigo', 'violet', 'plum',
+      'pearl', 'obsidian',
+    ],
+  },
+
+  obsidian: {
+    mode: 'obsidian',
+    name: 'Grafen',
+    icon: 'moon-outline',
+    desc: 'Varsayılan koyu antrasit',
+    background: '#0F1115',
+    surface: '#181A20',
+    surfaceElevated: '#22252D',
+    border: '#2F333D',
+    text: '#F4F4F5',
+    textDim: '#A1A1AA',
+    textMuted: '#71717A',
+    compatibleAccents: [
+      'emerald', 'nordic', 'mint', 'coral', 'lavender', 'peach',
+      'electricCyan', 'neonPurple', 'sunsetOrange', 'emeraldGreen',
+      'sapphire', 'teal',
+      'ruby', 'rose', 'saffron',
+      'sage', 'moss',
+      'midnight', 'indigo', 'ocean', 'violet', 'plum',
+      'pearl', 'obsidian', 'cyan',
+    ],
+  },
+
   modernLight: {
     mode: 'modernLight',
     name: 'Modern Açık',
@@ -326,36 +391,6 @@ export const BASE_THEMES = {
     text: '#0F172A',
     textDim: '#334155',
     textMuted: '#475569',
-    compatibleAccents: [
-      'nordic', 'mint', 'coral', 'lavender', 'peach',
-      'electricCyan', 'neonPurple', 'emeraldGreen',
-      'emerald', 'sapphire', 'teal',
-      'forest', 'sage', 'moss', 'lime',
-      'midnight', 'indigo', 'ocean', 'violet', 'plum',
-      'pearl', 'obsidian', 'cyan',
-    ],
-  },
-
-  light: {
-    mode: 'light',
-    name: 'Fildişi',
-    icon: 'color-palette-outline',
-    desc: 'Sıcak geleneksel',
-    background: '#F7F3E8',
-    surface: '#FFFDF7',
-    surfaceElevated: '#F0EBDD',
-    border: '#D8D0BA',
-    text: '#172B23',
-    textDim: '#3D4D45',
-    textMuted: '#5C6C63',
-    compatibleAccents: [
-      'nordic', 'mint', 'coral', 'lavender', 'peach',
-      'emerald', 'amber', 'gold', 'sapphire', 'teal',
-      'bronze', 'copper', 'clay', 'ruby', 'rose', 'saffron', 'terracotta',
-      'forest', 'sage', 'moss', 'lime',
-      'indigo', 'violet', 'plum',
-      'pearl', 'obsidian',
-    ],
   },
 
   sepia: {
@@ -370,11 +405,6 @@ export const BASE_THEMES = {
     text: '#2C1E12',
     textDim: '#4A3728',
     textMuted: '#6B5540',
-    compatibleAccents: [
-      'peach', 'amber', 'gold',
-      'bronze', 'copper', 'clay', 'ruby', 'rose', 'saffron', 'terracotta',
-      'sage', 'moss', 'pearl', 'obsidian',
-    ],
   },
 
   sand: {
@@ -389,34 +419,6 @@ export const BASE_THEMES = {
     text: '#241A10',
     textDim: '#423223',
     textMuted: '#614E3D',
-    compatibleAccents: [
-      'peach', 'coral', 'amber', 'gold',
-      'bronze', 'copper', 'clay', 'ruby', 'rose', 'saffron', 'terracotta',
-      'mint', 'sage', 'lime', 'pearl', 'obsidian', 'cyan',
-    ],
-  },
-
-  obsidian: {
-    mode: 'obsidian',
-    name: 'Grafen',
-    icon: 'contrast-outline',
-    desc: 'Şık koyu antrasit',
-    background: '#0F1115',
-    surface: '#181A20',
-    surfaceElevated: '#22252D',
-    border: '#2F333D',
-    text: '#F4F4F5',
-    textDim: '#A1A1AA',
-    textMuted: '#71717A',
-    compatibleAccents: [
-      'nordic', 'mint', 'coral', 'lavender', 'peach',
-      'electricCyan', 'neonPurple', 'sunsetOrange', 'emeraldGreen',
-      'emerald', 'sapphire', 'teal',
-      'ruby', 'rose', 'saffron',
-      'sage', 'moss',
-      'midnight', 'indigo', 'ocean', 'violet', 'plum',
-      'pearl', 'obsidian', 'cyan',
-    ],
   },
 
   carbonNight: {
@@ -445,15 +447,6 @@ export const BASE_THEMES = {
     text: '#F8FAFC',
     textDim: '#CBD5E1',
     textMuted: '#94A3B8',
-    compatibleAccents: [
-      'nordic', 'mint', 'coral', 'lavender', 'peach',
-      'electricCyan', 'neonPurple', 'sunsetOrange', 'emeraldGreen',
-      'emerald', 'sapphire', 'teal',
-      'ruby', 'rose', 'saffron',
-      'sage', 'moss',
-      'midnight', 'indigo', 'ocean', 'violet', 'plum',
-      'pearl', 'obsidian', 'cyan',
-    ],
   },
 
   charcoal: {
@@ -468,12 +461,6 @@ export const BASE_THEMES = {
     text: '#FFFFFF',
     textDim: '#CCCCCC',
     textMuted: '#A0A0A0',
-    compatibleAccents: [
-      'peach', 'coral', 'amber', 'gold',
-      'bronze', 'copper', 'clay', 'ruby', 'rose', 'saffron', 'terracotta',
-      'forest', 'sage', 'moss', 'lime',
-      'pearl', 'obsidian', 'cyan',
-    ],
   },
 
   midnight: {
@@ -488,13 +475,6 @@ export const BASE_THEMES = {
     text: '#FFFFFF',
     textDim: '#CBD5E1',
     textMuted: '#94A3B8',
-    compatibleAccents: [
-      'nordic', 'lavender',
-      'electricCyan', 'neonPurple', 'emeraldGreen',
-      'sapphire', 'teal', 'mint', 'moss',
-      'midnight', 'indigo', 'ocean', 'violet', 'plum',
-      'pearl', 'obsidian', 'cyan',
-    ],
   },
 
   cyber: {
@@ -509,13 +489,6 @@ export const BASE_THEMES = {
     text: '#FFFFFF',
     textDim: '#D0C9EC',
     textMuted: '#9B91C9',
-    compatibleAccents: [
-      'nordic', 'lavender',
-      'electricCyan', 'neonPurple', 'sunsetOrange', 'emeraldGreen',
-      'sapphire', 'rose', 'ruby',
-      'indigo', 'violet', 'plum',
-      'cyan', 'pearl',
-    ],
     widget: {
       gold: '#C084FC',
       goldSoft: '#7E22CE',
@@ -535,23 +508,76 @@ export const BASE_THEMES = {
     text: '#FFFFFF',
     textDim: '#D4D4D4',
     textMuted: '#A3A3A3',
-    compatibleAccents: [
-      'nordic', 'mint', 'coral', 'lavender', 'peach',
-      'electricCyan', 'neonPurple', 'sunsetOrange', 'emeraldGreen',
-      'emerald', 'sapphire', 'teal',
-      'ruby', 'rose', 'saffron',
-      'sage', 'moss', 'lime',
-      'midnight', 'indigo', 'ocean', 'violet', 'plum',
-      'pearl', 'obsidian', 'cyan',
-    ],
   },
 };
 
 /* ================================================================
-   OTOMATİK TÜRETİLEN LİSTELER & MATRİSLER (DİNAMİK)
+   GÜNÜN SAATİNE GÖRE KADEMELİ DİNAMİK TEMA HESAPLAYICI
+   - 05:30 - 07:30: Grafen -> Fildişi (Şafak / Sabah Aydınlanması)
+   - 07:30 - 16:30: Tam Fildişi (Gündüz Aydınlık)
+   - 16:30 - 18:30: Fildişi -> Sıcak İkindi/Gün Batımı Tonu (Kademeli Kısılma)
+   - 18:30 - 20:00: Gün Batımı -> Grafen (Akşam Kararması)
+   - 20:00 - 05:30: Tam Grafen (Gece Koyu)
+   ================================================================ */
+const blendBaseThemes = (themeA, themeB, ratio, modeLabel = 'dynamic') => {
+  const bg = interpolateHex(themeA.background, themeB.background, ratio);
+  const isLight = getLuminance(bg) > 0.42;
+  // Metin kontrastını korumak için geçiş eşiğinde keskin ama güvenli metin rengi
+  const textSource = isLight ? BASE_THEMES.light : BASE_THEMES.obsidian;
+
+  return {
+    mode: modeLabel,
+    name: 'Dinamik',
+    icon: 'contrast-outline',
+    desc: 'Günün saatine göre otomatik',
+    background: bg,
+    surface: interpolateHex(themeA.surface, themeB.surface, ratio),
+    surfaceElevated: interpolateHex(themeA.surfaceElevated, themeB.surfaceElevated, ratio),
+    border: interpolateHex(themeA.border, themeB.border, ratio),
+    text: textSource.text,
+    textDim: textSource.textDim,
+    textMuted: textSource.textMuted,
+  };
+};
+
+export const resolveDynamicBaseTheme = (date = new Date()) => {
+  const hours = date.getHours() + date.getMinutes() / 60;
+  const ivory = BASE_THEMES[DEFAULT_LIGHT_THEME]; // Fildişi
+  const graphene = BASE_THEMES[DEFAULT_DARK_THEME]; // Grafen
+  const duskWarm = BASE_THEMES.sand; // Gün batımı ara sıcak tonu
+
+  // 1. Şafak Aydınlanması (05:30 -> 07:30)
+  if (hours >= 5.5 && hours < 7.5) {
+    const progress = (hours - 5.5) / 2.0;
+    return blendBaseThemes(graphene, ivory, progress);
+  }
+
+  // 2. Tam Gündüz (07:30 -> 16:30) -> Fildişi
+  if (hours >= 7.5 && hours < 16.5) {
+    return { ...ivory, mode: 'dynamic' };
+  }
+
+  // 3. İkindi / Gün Batımı Yumuşak Kısılma (16:30 -> 18:30)
+  if (hours >= 16.5 && hours < 18.5) {
+    const progress = (hours - 16.5) / 2.0;
+    return blendBaseThemes(ivory, duskWarm, progress);
+  }
+
+  // 4. Akşam Kararması (18:30 -> 20:00)
+  if (hours >= 18.5 && hours < 20.0) {
+    const progress = (hours - 18.5) / 1.5;
+    return blendBaseThemes(duskWarm, graphene, progress);
+  }
+
+  // 5. Gece (20:00 -> 05:30) -> Grafen
+  return { ...graphene, mode: 'dynamic' };
+};
+
+/* ================================================================
+   OTOMATİK TÜRETİLEN LİSTELER & MATRİSLER
    ================================================================ */
 export const THEME_MODES = [
-  { id: 'dynamic', name: 'Dinamik', icon: 'contrast-outline', desc: 'Güneşe göre otomatik' },
+  { id: 'dynamic', name: 'Dinamik', icon: 'contrast-outline', desc: 'Günün saatine göre otomatik' },
   ...Object.entries(BASE_THEMES).map(([id, theme]) => ({
     id,
     name: theme.name || id,
@@ -573,11 +599,11 @@ export const THEME_ACCENT_COMPAT = Object.entries(BASE_THEMES).reduce(
 );
 
 /* ================================================================
-   WIDGET PALETİ — Android Ana Ekran Widget'ı İçin Dinamik Palet
+   WIDGET PALETİ — Varsayılan Koyu: Grafen (obsidian)
    ================================================================ */
 export const getWidgetPalette = (themeMode = 'auto') => {
-  const mode = themeMode === 'auto' ? 'dark' : themeMode;
-  const base = BASE_THEMES[mode] || BASE_THEMES.dark;
+  const mode = themeMode === 'auto' ? DEFAULT_DARK_THEME : themeMode;
+  const base = BASE_THEMES[mode] || BASE_THEMES[DEFAULT_DARK_THEME];
   const isLight = getLuminance(base.background) > 0.45;
 
   return {
@@ -588,28 +614,41 @@ export const getWidgetPalette = (themeMode = 'auto') => {
     text: base.text,
     textDim: base.textDim,
     textMuted: base.textMuted,
-    gold: isLight ? '#B88A32' : '#FBBF24',
-    goldSoft: isLight ? '#78350F' : '#D97706',
-    goldBright: isLight ? '#D97706' : '#FDE047',
+    gold: isLight ? '#047857' : '#10B981',
+    goldSoft: isLight ? '#065F46' : '#059669',
+    goldBright: isLight ? '#059669' : '#34D399',
     error: isLight ? '#B91C1C' : '#F87171',
     ...(base.widget || {}),
   };
 };
 
 /* ================================================================
-   TEMA OLUŞTURUCU (BUILDER) - OTOMATİK WCAG KONTRAST UYARLAMASI
+   TEMA OLUŞTURUCU (BUILDER)
+   - Varsayılan Koyu: Grafen (obsidian)
+   - Varsayılan Aydınlık: Fildişi (light)
+   - Varsayılan Renk: Türbe Yeşili (emerald)
    ================================================================ */
-export const buildTheme = (themeMode = 'dark', accentId = 'emerald') => {
-  const base = BASE_THEMES[themeMode] || BASE_THEMES.dark;
-  const accent = ACCENT_COLORS[accentId] || ACCENT_COLORS.emerald;
+export const buildTheme = (
+  themeMode = 'dynamic',
+  accentId = DEFAULT_ACCENT_COLOR,
+  now = new Date()
+) => {
+  let base;
+  if (themeMode === 'dynamic') {
+    base = resolveDynamicBaseTheme(now);
+  } else {
+    base = BASE_THEMES[themeMode] || BASE_THEMES[DEFAULT_DARK_THEME];
+  }
 
-  const isLightTheme = getLuminance(base.background) > 0.45;
+  const accent = ACCENT_COLORS[accentId] || ACCENT_COLORS[DEFAULT_ACCENT_COLOR];
+  const isLightTheme = getLuminance(base.background) > 0.42;
   const primaryColor = isLightTheme ? accent.dark : accent.primary;
 
   const { compatibleAccents: _c, widget: _w, ...cleanBase } = base;
 
   return {
     ...cleanBase,
+    isLight: isLightTheme,
     primary: primaryColor,
     primaryDark: accent.dark,
     primaryLight: accent.light,
@@ -622,16 +661,16 @@ export const buildTheme = (themeMode = 'dark', accentId = 'emerald') => {
    ================================================================ */
 export const ACCENT_GROUPS = [
   {
+    name: 'Klasik',
+    ids: ['emerald', 'amber', 'gold', 'sapphire', 'teal'],
+  },
+  {
     name: 'Modern Pastel',
     ids: ['nordic', 'mint', 'coral', 'lavender', 'peach'],
   },
   {
     name: 'Neon & Canlı',
     ids: ['electricCyan', 'neonPurple', 'sunsetOrange', 'emeraldGreen'],
-  },
-  {
-    name: 'Klasik',
-    ids: ['emerald', 'amber', 'gold', 'sapphire', 'teal'],
   },
   {
     name: 'Sıcak Toprak',

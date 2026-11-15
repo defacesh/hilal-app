@@ -214,6 +214,16 @@ const formatMinutes = (minutes) => {
   const total = Math.max(0, Math.ceil(minutes));
   if (total >= 60) {
     const h = Math.floor(total / 60), r = total % 60;
+    return r === 0 ? `${h} saat` : `${h} saat ${r} dk`;
+  }
+  if (total <= 1) return '1 dakikadan az';
+  return `${total} dakika`;
+};
+
+const formatMinutesShort = (minutes) => {
+  const total = Math.max(0, Math.ceil(minutes));
+  if (total >= 60) {
+    const h = Math.floor(total / 60), r = total % 60;
     return r === 0 ? `${h} sa` : `${h} sa ${r} dk`;
   }
   return `${total} dk`;
@@ -795,6 +805,247 @@ const ProgressBar = memo(function ProgressBar({ from, to, now, theme }) {
   );
 });
 
+/* ================================================================
+   BASİT MOD HERO KARTI — Saniye kutuları ve görsel karmaşa olmadan,
+   doğrudan sıradaki vakit adı, saati ve okunaklı kalan süre
+   ================================================================ */
+const SimpleHero = memo(function SimpleHero({
+  theme, fontScale, formattedDate, nextPrayer, now,
+  refreshing, onRefresh, onShare, onLongPress, highContrast,
+}) {
+  const minutesLeft = nextPrayer?.date
+    ? Math.max(0, (nextPrayer.date.getTime() - now.getTime()) / 60000)
+    : null;
+  const isApproaching = minutesLeft !== null && minutesLeft > 0 && minutesLeft < APPROACHING_MINUTES;
+
+  return (
+    <PressableScale
+      onPress={onLongPress}
+      onLongPress={onLongPress}
+      haptic="light"
+      accessibilityRole="button"
+      accessibilityLabel={
+        nextPrayer
+          ? `Sıradaki namaz ${nextPrayer.name}, saat ${nextPrayer.time}, ${formatMinutes(minutesLeft)} kaldı`
+          : 'Vakit bilgisi'
+      }
+      style={[
+        styles.simpleHero,
+        {
+          backgroundColor: theme.surface,
+          borderColor: isApproaching ? theme.primary : theme.border,
+          borderWidth: highContrast || isApproaching ? 2 : 1,
+        },
+        SHADOW_SM,
+        { shadowColor: highContrast ? '#FFFFFF' : theme.text },
+      ]}
+    >
+      <View style={styles.simpleHeroTop}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <MaterialCommunityIcons
+            name={nextPrayer?.icon || 'star-crescent'}
+            size={18 * fontScale}
+            color={theme.primary}
+          />
+          <Text style={[styles.simpleHeroEyebrow, { color: theme.primary, fontSize: 12 * fontScale }]}>
+            {nextPrayer?.tomorrow ? 'YARIN SIRADAKİ NAMAZ' : 'SIRADAKİ NAMAZ'}
+          </Text>
+        </View>
+        <Text style={[styles.simpleHeroDate, { color: theme.textDim, fontSize: 11.5 * fontScale }]}>
+          {formattedDate}
+        </Text>
+      </View>
+
+      <View style={styles.simpleHeroMain}>
+        <Text
+          style={[styles.simpleHeroName, { color: theme.text, fontSize: 34 * fontScale }]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.7}
+        >
+          {nextPrayer?.name ?? '—'}
+        </Text>
+        <Text
+          style={[styles.simpleHeroTime, { color: theme.primary, fontSize: 40 * fontScale }]}
+          numberOfLines={1}
+        >
+          {nextPrayer?.time ?? '--:--'}
+        </Text>
+      </View>
+
+      {minutesLeft !== null ? (
+        <View
+          style={[
+            styles.simpleHeroRemainingBox,
+            {
+              backgroundColor: highContrast
+                ? '#000000'
+                : (isApproaching ? `${theme.primary}22` : `${theme.primary}12`),
+              borderColor: isApproaching ? theme.primary : `${theme.primary}30`,
+              borderWidth: highContrast ? 2 : 1,
+            },
+          ]}
+        >
+          <Ionicons name="time-outline" size={18 * fontScale} color={theme.primary} />
+          <Text
+            style={[styles.simpleHeroRemainingText, { color: theme.text, fontSize: 15 * fontScale }]}
+            numberOfLines={1}
+          >
+            {formatMinutes(minutesLeft)} kaldı
+          </Text>
+        </View>
+      ) : null}
+
+      <View style={[styles.simpleHeroFooter, { borderTopColor: theme.border }]}>
+        <TouchableOpacity
+          onPress={onShare}
+          accessibilityLabel="Vakitleri paylaş"
+          style={[styles.simpleHeroActionBtn, { borderColor: theme.border, backgroundColor: theme.background }]}
+        >
+          <Ionicons name="share-outline" size={16} color={theme.primary} />
+          <Text style={[styles.simpleHeroActionText, { color: theme.text, fontSize: 12 * fontScale }]}>
+            Paylaş
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={onRefresh}
+          disabled={refreshing}
+          accessibilityLabel="Vakitleri yenile"
+          style={[styles.simpleHeroActionBtn, { borderColor: theme.border, backgroundColor: theme.background }]}
+        >
+          {refreshing ? (
+            <ActivityIndicator color={theme.primary} size="small" />
+          ) : (
+            <Ionicons name="refresh" size={16} color={theme.primary} />
+          )}
+          <Text style={[styles.simpleHeroActionText, { color: theme.text, fontSize: 12 * fontScale }]}>
+            Yenile
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </PressableScale>
+  );
+});
+
+/* ================================================================
+   BASİT MOD VAKİT LİSTESİ — Alt alta, geniş puntolu vakit satırları
+   ================================================================ */
+const SimplePrayerList = memo(function SimplePrayerList({
+  prayers, tomorrowImsak, now, nextPrayer, theme, fontScale, highContrast,
+}) {
+  const items = useMemo(() => {
+    const base = prayers.map((p) => ({ ...p, tomorrow: false }));
+    if (tomorrowImsak) {
+      base.push({
+        id: 'imsak-tomorrow',
+        name: 'İmsak (Yarın)',
+        icon: 'weather-night',
+        time: tomorrowImsak,
+        isSunrise: false,
+        tomorrow: true,
+      });
+    }
+    return base;
+  }, [prayers, tomorrowImsak]);
+
+  if (items.length === 0) return null;
+
+  return (
+    <View
+      style={[
+        styles.simpleListCard,
+        {
+          backgroundColor: theme.surface,
+          borderColor: theme.border,
+          borderWidth: highContrast ? 2 : 1,
+        },
+        SHADOW_SM,
+        { shadowColor: highContrast ? '#FFFFFF' : theme.text },
+      ]}
+    >
+      <Text style={[styles.simpleListHeader, { color: theme.textDim, fontSize: 12 * fontScale }]}>
+        GÜNÜN NAMAZ VAKİTLERİ
+      </Text>
+
+      {items.map((p, idx) => {
+        const date = toDate(p.time, now, p.tomorrow ? 1 : 0);
+        const isPassed = !p.tomorrow && date && date <= now;
+        const isNext = p.tomorrow
+          ? nextPrayer?.tomorrow === true
+          : (nextPrayer?.id === p.id && !nextPrayer?.tomorrow);
+
+        const rowBg = isNext
+          ? (highContrast ? '#000000' : `${theme.primary}18`)
+          : 'transparent';
+
+        return (
+          <View
+            key={p.id}
+            accessibilityLabel={`${p.name}, saat ${p.time}${isNext ? ', sıradaki vakit' : isPassed ? ', geçti' : ''}`}
+            style={[
+              styles.simpleListRow,
+              {
+                backgroundColor: rowBg,
+                borderTopWidth: idx === 0 ? 0 : StyleSheet.hairlineWidth,
+                borderTopColor: theme.border,
+                borderColor: isNext ? theme.primary : 'transparent',
+                borderWidth: isNext ? (highContrast ? 2 : 1.5) : 0,
+                borderRadius: isNext ? RADIUS.md : 0,
+              },
+            ]}
+          >
+            <View style={styles.simpleListLeft}>
+              <MaterialCommunityIcons
+                name={p.icon}
+                size={20 * fontScale}
+                color={isNext ? theme.primary : (isPassed ? theme.textMuted : theme.textDim)}
+              />
+              <Text
+                style={[
+                  styles.simpleListName,
+                  {
+                    color: isNext ? theme.primary : (isPassed ? theme.textMuted : theme.text),
+                    fontSize: 16 * fontScale,
+                    fontWeight: isNext ? '900' : '700',
+                  },
+                ]}
+              >
+                {p.name}
+              </Text>
+              {isNext ? (
+                <View style={[styles.simpleListNextTag, { backgroundColor: theme.primary }]}>
+                  <Text style={[styles.simpleListNextTagText, { color: highContrast ? '#000000' : '#FFFFFF' }]}>
+                    SIRADAKİ
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+
+            <View style={styles.simpleListRight}>
+              <Text
+                style={[
+                  styles.simpleListTime,
+                  {
+                    color: isNext ? theme.primary : (isPassed ? theme.textMuted : theme.text),
+                    fontSize: 18 * fontScale,
+                    fontWeight: isNext ? '900' : '800',
+                  },
+                ]}
+              >
+                {p.time}
+              </Text>
+              {isPassed && !isNext ? (
+                <Ionicons name="checkmark-circle" size={16} color={theme.textMuted} />
+              ) : null}
+            </View>
+          </View>
+        );
+      })}
+    </View>
+  );
+});
+
 const Hero = memo(function Hero({
   theme, compact, fontScale, sourceLabel, formattedDate, hijri,
   nextPrayer, previousPrayerDate, now, refreshing, showProgress,
@@ -1122,7 +1373,7 @@ const InfoAlert = memo(function InfoAlert({
         <MaterialCommunityIcons name="weather-sunset" size={22} color={theme.primary} />
         <View style={{ flex: 1 }}>
           <Text style={{ color: theme.text, fontSize: 12.5 * fontScale, fontWeight: '900' }}>
-            Kerahat · {formatMinutes(kerahatInfo.remainingMinutes)} kaldı
+            Kerahat · {formatMinutesShort(kerahatInfo.remainingMinutes)} kaldı
           </Text>
           <View style={[styles.kerahatProgressTrack, { backgroundColor: theme.border }]}>
             <View style={[styles.kerahatProgressFill, {
@@ -1173,7 +1424,7 @@ const InfoAlert = memo(function InfoAlert({
   return null;
 });
 
-const AnimatedPrayerCard = memo(function AnimatedPrayerCard({ active, children, theme, highContrast }) {
+const AnimatedPrayerCard = memo(function AnimatedPrayerCard({ active, children }) {
   const scale = useRef(new Animated.Value(active ? 1.03 : 1)).current;
 
   useEffect(() => {
@@ -1396,7 +1647,7 @@ const CompactTimeline = memo(function CompactTimeline({ prayers, now, theme, fon
           }]}>
             {data.passedCount} / {data.total} vakit
             {data.nextItem
-              ? ` · ${formatMinutes(data.remainingMs / 60000)} kaldı`
+              ? ` · ${formatMinutesShort(data.remainingMs / 60000)} kaldı`
               : ' · Tamamlandı'}
           </Text>
         </View>
@@ -1416,9 +1667,6 @@ const CompactTimeline = memo(function CompactTimeline({ prayers, now, theme, fon
   );
 });
 
-/* ================================================================
-   ✅ YENİ: Bildirim hatırlatma kartı (showNotificationsCard)
-   ================================================================ */
 const NotificationsCard = memo(function NotificationsCard({
   enabled, reminderMinutes, onOpenSettings, theme, fontScale, highContrast,
 }) {
@@ -1684,7 +1932,7 @@ const BottomBarTab = memo(function BottomBarTab({
       <Text style={[styles.bottomBarText, {
         color: active ? theme.primary : theme.textDim,
         fontSize: Math.round(11 * fontScale),
-        fontWeight: active ? '900' : (highContrast ? '700' : '700'),
+        fontWeight: active ? '900' : '700',
       }]}>
         {label}
       </Text>
@@ -1737,38 +1985,38 @@ const BottomBar = memo(function BottomBar({
       shadowColor: highContrast ? '#FFFFFF' : theme.text,
     }]}>
       <View style={styles.bottomBarInner} accessibilityRole="tablist">
-      <BottomBarTab
-        active={activeTab === 'home'}
-        icon="home-outline"
-        activeIcon="home"
-        label="Ana Sayfa"
-        onPress={onPressHome}
-        theme={theme}
-        fontScale={fontScale}
-        highContrast={highContrast}
-      />
-      <BottomBarTab
-        active={activeTab === 'tools'}
-        icon="grid-outline"
-        activeIcon="grid"
-        label="Araçlar"
-        onPress={onOpenTools}
-        theme={theme}
-        fontScale={fontScale}
-        highContrast={highContrast}
-        disabled={!onOpenTools}
-      />
-      <BottomBarTab
-        active={activeTab === 'settings'}
-        icon="settings-outline"
-        activeIcon="settings"
-        label="Ayarlar"
-        onPress={onOpenSettings}
-        theme={theme}
-        fontScale={fontScale}
-        highContrast={highContrast}
-        disabled={!onOpenSettings}
-      />
+        <BottomBarTab
+          active={activeTab === 'home'}
+          icon="home-outline"
+          activeIcon="home"
+          label="Ana Sayfa"
+          onPress={onPressHome}
+          theme={theme}
+          fontScale={fontScale}
+          highContrast={highContrast}
+        />
+        <BottomBarTab
+          active={activeTab === 'tools'}
+          icon="grid-outline"
+          activeIcon="grid"
+          label="Araçlar"
+          onPress={onOpenTools}
+          theme={theme}
+          fontScale={fontScale}
+          highContrast={highContrast}
+          disabled={!onOpenTools}
+        />
+        <BottomBarTab
+          active={activeTab === 'settings'}
+          icon="settings-outline"
+          activeIcon="settings"
+          label="Ayarlar"
+          onPress={onOpenSettings}
+          theme={theme}
+          fontScale={fontScale}
+          highContrast={highContrast}
+          disabled={!onOpenSettings}
+        />
       </View>
     </View>
   );
@@ -1879,7 +2127,7 @@ export default function HomeScreen({
 
   const homePrefs = useHomePrefs();
   const readingFontScale = useReadingFontScale();
-  const globalHaptic = useGlobalHaptic();
+  useGlobalHaptic();
   const readingMode = useReadingMode();
 
   const hasShownIntro = hasShownIntroProp ?? storeHasShownIntro;
@@ -1917,7 +2165,6 @@ export default function HomeScreen({
   const widgetsConfig = storedWidgetsConfig || DEFAULT_WIDGETS_CONFIG;
   const rawTheme = useMemo(() => getTheme(), [getTheme, themeModeSel, accentSel]);
 
-  /* ✅ HC override: textMuted + onPrimary eklendi */
   const theme = useMemo(() => {
     if (!highContrast) return rawTheme;
     return {
@@ -2067,7 +2314,6 @@ export default function HomeScreen({
   const [reloadTick, setReloadTick] = useState(0);
   const dayKey = getLocalDateString(now);
 
-  /* ✅ Patch 1.3: Gün geçişi bildirimi */
   useEffect(() => {
     if (active && loadDayRef.current !== dayKey) {
       loadDayRef.current = dayKey;
@@ -2082,7 +2328,6 @@ export default function HomeScreen({
     const currentRequest = ++requestId.current;
     const isCurrent = () => !cancelled && mounted.current && currentRequest === requestId.current;
 
-    /* ✅ Patch 1.2: applyPartial'da ilerleyici alt yazı */
     const applyPartial = (partial) => {
       if (!isCurrent() || !partial) return;
       if (partial.prayerData) {
@@ -2099,7 +2344,6 @@ export default function HomeScreen({
     };
 
     (async () => {
-      /* ✅ Patch 1.2: başlangıç alt yazısı konuma göre */
       if (!hasDataRef.current) {
         setLoadingSubtitle(
           preloadParams.location?.city
@@ -2249,7 +2493,8 @@ export default function HomeScreen({
   const greeting = getGreeting(now);
   const notificationsOn = widgetsConfig.notificationsEnabled;
 
-  const showContentSection = !isSimpleMode &&
+  // ✅ Basit modda da vaktin ayet, dua ve esma içerikleri açık kalır
+  const showContentSection =
     homePrefs.showManeviContent !== false && (
       (widgetsConfig.showVerseCard ?? true) ||
       (widgetsConfig.showDuaCard ?? true) ||
@@ -2257,105 +2502,152 @@ export default function HomeScreen({
       homePrefs.showDailyVerse
     );
 
-  /* BÜTÜN HOOK'LAR ÇAĞRILDIKTAN SONRA ERKEN RETURN KONTROLÜ */
+  const renderManeviSection = () => {
+    if (!showContentSection) return null;
+    return (
+      <Section
+        title={getVakitBaslik(activePrayerId)}
+        subtitle={contentShowArabic ? 'Arapça + Türkçe' : 'Türkçe'}
+        theme={theme}
+        fontScale={fontScale}
+        icon="hands-pray"
+        highContrast={highContrast}
+      >
+        {homePrefs.showDailyVerse ? (
+          <VakitContentCard
+            kind="ayet"
+            prayerId={activePrayerId}
+            seed={daySeed}
+            theme={theme}
+            fontScale={fontScale}
+            mealEdition={mealEdition}
+            showArabic={contentShowArabic}
+            readingMode={readingMode}
+            initialData={null}
+          />
+        ) : null}
+
+        {widgetsConfig.showVerseCard !== false ? (
+          <VakitContentCard
+            kind="ayet"
+            prayerId={activePrayerId}
+            seed={vakitSeed}
+            theme={theme}
+            fontScale={fontScale}
+            mealEdition={mealEdition}
+            showArabic={contentShowArabic}
+            readingMode={readingMode}
+            initialData={vakitContent?.ayet ?? null}
+          />
+        ) : null}
+
+        {widgetsConfig.showDuaCard !== false ? (
+          <VakitContentCard
+            kind="dua"
+            prayerId={activePrayerId}
+            seed={vakitSeed}
+            theme={theme}
+            fontScale={fontScale}
+            mealEdition={mealEdition}
+            showArabic={contentShowArabic}
+            readingMode={readingMode}
+            initialData={vakitContent?.dua ?? null}
+          />
+        ) : null}
+
+        {widgetsConfig.showEsmaCard !== false ? (
+          <VakitContentCard
+            kind="esma"
+            prayerId={activePrayerId}
+            seed={vakitSeed}
+            theme={theme}
+            fontScale={fontScale}
+            mealEdition={mealEdition}
+            showArabic={contentShowArabic}
+            readingMode={readingMode}
+            initialData={vakitContent?.esma ?? null}
+          />
+        ) : null}
+      </Section>
+    );
+  };
+
   if (!isTransitionReady || (loading && !prayerData)) {
     return <LoadingScreen theme={theme} subtitle={loadingSubtitle} highContrast={highContrast} />;
   }
 
   return (
     <ActiveContext.Provider value={active}>
-    <SafeAreaView
-      style={[styles.container, { backgroundColor: theme.background }]}
-      edges={['top', 'left', 'right']}
-    >
-      {active ? (
-        <StatusBar barStyle={highContrast || theme.mode === 'dark' || theme.mode === 'oled' ? 'light-content' : 'dark-content'} />
-      ) : null}
-
-      <ScrollView
-        ref={scrollRef}
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingTop: 8 },
-          { paddingBottom: bottomBarPadding },
-        ]}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        onScroll={handleScroll}
-        scrollEventThrottle={32}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            tintColor={theme.primary}
-            colors={[theme.primary]}
-            progressBackgroundColor={theme.surface}
-          />
-        }
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: theme.background }]}
+        edges={['top', 'left', 'right']}
       >
-        <View style={[
-          styles.page,
-          pageMaxWidth ? { maxWidth: pageMaxWidth } : null,
-          isWide ? styles.pageRow : null,
-        ]}>
+        {active ? (
+          <StatusBar barStyle={highContrast || theme.mode === 'dark' || theme.mode === 'oled' ? 'light-content' : 'dark-content'} />
+        ) : null}
 
-        {/* HEADER BÖLÜMÜ */}
-        <View style={isWide ? styles.colLeft : styles.colFull}>
-          <Reveal animStyle={group1Anim}>
-            <View style={styles.header}>
-              <View style={styles.headerText}>
-                <Text
-                  style={[styles.greetingText, {
-                    color: theme.textDim, fontSize: 13 * fontScale,
-                    fontWeight: highContrast ? '700' : '600',
-                  }]}
-                  numberOfLines={1}
-                >
-                  {greeting},
-                </Text>
-
-                <TouchableOpacity
-                  onPress={handleLocationPress}
-                  activeOpacity={0.7}
-                  style={styles.locationRow}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Konum: ${location.district}. Değiştirmek için dokun.`}
-                >
-                  <Ionicons name="location-sharp" size={17} color={theme.primary} style={{ marginRight: 4 }} />
-                  <Text
-                    accessibilityRole="header"
-                    style={[styles.brand, {
-                      color: theme.text, fontSize: 24 * fontScale,
-                      fontWeight: '900',
-                    }]}
-                    numberOfLines={1}
+        <ScrollView
+          ref={scrollRef}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingTop: 8 },
+            { paddingBottom: bottomBarPadding },
+          ]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          onScroll={isSimpleMode ? undefined : handleScroll}
+          scrollEventThrottle={32}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor={theme.primary}
+              colors={[theme.primary]}
+              progressBackgroundColor={theme.surface}
+            />
+          }
+        >
+          {/* ================================================================
+              BASİT MOD GÖRÜNÜMÜ (Sade Tasarım + Tüm İçerikler Korunur)
+              ================================================================ */}
+          {isSimpleMode ? (
+            <View style={[styles.page, pageMaxWidth ? { maxWidth: pageMaxWidth } : null]}>
+              <View style={styles.header}>
+                <View style={styles.headerText}>
+                  <TouchableOpacity
+                    onPress={handleLocationPress}
+                    activeOpacity={0.7}
+                    style={styles.locationRow}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Konum: ${location.district}. Değiştirmek için dokun.`}
                   >
-                    {location.district}
-                  </Text>
-                  <Ionicons name="chevron-down" size={14} color={theme.textDim} style={{ marginLeft: 4 }} />
-                </TouchableOpacity>
+                    <Ionicons name="location-sharp" size={20} color={theme.primary} style={{ marginRight: 6 }} />
+                    <Text
+                      accessibilityRole="header"
+                      style={[styles.brand, { color: theme.text, fontSize: 26 * fontScale, fontWeight: '900' }]}
+                      numberOfLines={1}
+                    >
+                      {location.district}
+                    </Text>
+                    <Ionicons name="chevron-down" size={16} color={theme.textDim} style={{ marginLeft: 4 }} />
+                  </TouchableOpacity>
+                  {hijri ? (
+                    <Text
+                      style={[styles.hijriSubtitle, { color: theme.textDim, fontSize: 12.5 * fontScale }]}
+                      numberOfLines={1}
+                    >
+                      {hijri}
+                    </Text>
+                  ) : null}
+                </View>
 
-                {homePrefs.showHijriInHeader !== false && hijri ? (
-                  <Text
-                    style={[styles.hijriSubtitle, {
-                      color: theme.textDim, fontSize: 11.5 * fontScale,
-                      fontWeight: highContrast ? '700' : '600',
-                    }]}
-                    numberOfLines={1}
-                  >
-                    {hijri}
-                  </Text>
-                ) : null}
-              </View>
-
-              <View style={styles.headerActions}>
                 <PressableScale
                   onPress={cycleFontScale}
                   accessibilityLabel={`Yazı boyutu: ${FONT_NAMES[fontIdx]}. Değiştirmek için dokun.`}
                   style={[styles.roundButtonSmall, {
-                    backgroundColor: fontIdx > 0
-                      ? (highContrast ? '#000000' : (theme.primaryGlow || `${theme.primary}18`))
-                      : theme.surface,
+                    width: 48,
+                    height: 48,
+                    backgroundColor: fontIdx > 0 ? `${theme.primary}18` : theme.surface,
                     borderColor: fontIdx > 0 ? theme.primary : theme.border,
                     borderWidth: highContrast ? 2 : 1,
                   }]}
@@ -2363,111 +2655,54 @@ export default function HomeScreen({
                   <Text style={{
                     color: fontIdx > 0 ? theme.primary : theme.text,
                     fontWeight: '900',
-                    fontSize: 11 + fontIdx * 1.5,
+                    fontSize: 12 + fontIdx * 1.5,
                   }}>
                     {FONT_LABELS[fontIdx]}
                   </Text>
                 </PressableScale>
-
-                <HeaderIconButton
-                  icon={notificationsOn ? 'notifications-outline' : 'notifications-off-outline'}
-                  badge={notificationsOn}
-                  badgeColor={theme.primary}
-                  onPress={handleNotificationPress}
-                  theme={theme}
-                  active={notificationsOn}
-                  highContrast={highContrast}
-                  accessibilityLabel={`Bildirimler ${notificationsOn ? 'açık' : 'kapalı'}`}
-                />
               </View>
-            </View>
 
-            <InfoAlert
-              error={error}
-              kerahatInfo={kerahatInfo}
-              notice={notice}
-              onDismissNotice={() => setNotice('')}
-              onRetry={handleRefresh}
-              theme={theme}
-              fontScale={fontScale}
-              highContrast={highContrast}
-            />
-          </Reveal>
-
-          {/* HERO KARTI */}
-          <Reveal animStyle={group1Anim}>
-            <View style={{ marginBottom: 16 }}>
-              <Hero
+              <InfoAlert
+                error={error}
+                kerahatInfo={kerahatInfo}
+                notice={notice}
+                onDismissNotice={() => setNotice('')}
+                onRetry={handleRefresh}
                 theme={theme}
-                compact={compact}
                 fontScale={fontScale}
-                sourceLabel={sourceLabel}
+                highContrast={highContrast}
+              />
+
+              {/* Sadeleştirilmiş Sıradaki Vakit Kartı */}
+              <SimpleHero
+                theme={theme}
+                fontScale={fontScale}
                 formattedDate={formattedDate}
-                hijri={hijri}
                 nextPrayer={nextPrayer}
-                previousPrayerDate={previousPrayerDate}
                 now={now}
                 refreshing={refreshing}
-                showProgress={widgetsConfig.showProgressTrack && nextPrayer?.date && previousPrayerDate}
-                showCountdown={homePrefs.showCountdown !== false}
                 onRefresh={handleRefresh}
                 onShare={handleShare}
                 onLongPress={handleHeroLongPress}
-                onLayout={handleHeroLayout}
                 highContrast={highContrast}
               />
-            </View>
-          </Reveal>
 
-          {/* VAKİT ÇİZGİSİ & İLERLEME & BİLDİRİM KARTI */}
-          <Reveal animStyle={group2Anim}>
-            {prayers.length > 0 && homePrefs.showPrayerStrip !== false ? (
-              <View style={{ marginBottom: 14 }}>
-                <PrayerStrip
-                  prayers={prayers}
-                  tomorrowImsak={prayerData?.tomorrowImsak}
-                  now={now}
-                  nextPrayer={nextPrayer}
-                  theme={theme}
-                  fontScale={fontScale}
-                  highContrast={highContrast}
-                />
-              </View>
-            ) : null}
-
-            {homePrefs.showDailyProgress !== false ? (
-              <CompactTimeline
+              {/* Alt Alta Tek Bakışta Vakit Listesi */}
+              <SimplePrayerList
                 prayers={prayers}
+                tomorrowImsak={prayerData?.tomorrowImsak}
                 now={now}
+                nextPrayer={nextPrayer}
                 theme={theme}
                 fontScale={fontScale}
                 highContrast={highContrast}
               />
-            ) : null}
 
-            {/* ✅ Patch 1.1: Bildirim hatırlatma kartı */}
-            {homePrefs.showNotificationsCard !== false ? (
-              <NotificationsCard
-                enabled={notificationsOn}
-                reminderMinutes={widgetsConfig.reminderBeforeMinutes ?? 15}
-                onOpenSettings={handleNotificationPress}
-                theme={theme}
-                fontScale={fontScale}
-                highContrast={highContrast}
-              />
-            ) : null}
-          </Reveal>
-        </View>
-
-        <View style={isWide ? styles.colRight : styles.colFull}>
-          {/* HIZLI KISAYOLLAR */}
-          <Reveal animStyle={group3Anim}>
-            {homePrefs.showQuickActions !== false ? (
+              {/* Hızlı Erişimler */}
               <Section
-                title="Keşfet"
+                title="Hızlı Erişim"
                 theme={theme}
                 fontScale={fontScale}
-                icon="compass-rose"
                 highContrast={highContrast}
               >
                 <QuickActions
@@ -2477,140 +2712,285 @@ export default function HomeScreen({
                   highContrast={highContrast}
                 />
               </Section>
-            ) : null}
-          </Reveal>
 
-          {/* GÜNÜN İSİMLERİ */}
-          <Reveal animStyle={group3Anim}>
-            {islamicNames.length > 0 && !isSimpleMode && homePrefs.showDailyNames !== false ? (
-              <Section
-                title="Günün İsimleri"
-                subtitle="Günlük seçki"
-                theme={theme}
-                fontScale={fontScale}
-                icon="book-open-variant"
-                highContrast={highContrast}
-              >
-                <DailyNamesCard
-                  female={dailyFemale}
-                  male={dailyMale}
+              {/* Günün İsimleri */}
+              {islamicNames.length > 0 && homePrefs.showDailyNames !== false ? (
+                <Section
+                  title="Günün İsimleri"
+                  subtitle="Günlük seçki"
                   theme={theme}
                   fontScale={fontScale}
+                  icon="book-open-variant"
                   highContrast={highContrast}
-                />
-              </Section>
-            ) : null}
-          </Reveal>
-
-          {/* MANEVİ İÇERİKLER */}
-          <Reveal animStyle={group4Anim}>
-            {showContentSection ? (
-              <Section
-                title={getVakitBaslik(activePrayerId)}
-                subtitle={contentShowArabic ? 'Arapça + Türkçe' : 'Türkçe'}
-                theme={theme}
-                fontScale={fontScale}
-                icon="hands-pray"
-                highContrast={highContrast}
-              >
-                {homePrefs.showDailyVerse ? (
-                  <VakitContentCard
-                    kind="ayet"
-                    prayerId={activePrayerId}
-                    seed={daySeed}
+                >
+                  <DailyNamesCard
+                    female={dailyFemale}
+                    male={dailyMale}
                     theme={theme}
                     fontScale={fontScale}
-                    mealEdition={mealEdition}
-                    showArabic={contentShowArabic}
-                    readingMode={readingMode}
-                    initialData={null}
+                    highContrast={highContrast}
                   />
-                ) : null}
+                </Section>
+              ) : null}
 
-                {widgetsConfig.showVerseCard !== false ? (
-                  <VakitContentCard
-                    kind="ayet"
-                    prayerId={activePrayerId}
-                    seed={vakitSeed}
+              {/* Vaktin Ayet, Dua ve Esma İçerikleri */}
+              {renderManeviSection()}
+            </View>
+          ) : (
+            /* ================================================================
+               STANDART MOD GÖRÜNÜMÜ
+               ================================================================ */
+            <View style={[
+              styles.page,
+              pageMaxWidth ? { maxWidth: pageMaxWidth } : null,
+              isWide ? styles.pageRow : null,
+            ]}>
+              {/* HEADER BÖLÜMÜ */}
+              <View style={isWide ? styles.colLeft : styles.colFull}>
+                <Reveal animStyle={group1Anim}>
+                  <View style={styles.header}>
+                    <View style={styles.headerText}>
+                      <Text
+                        style={[styles.greetingText, {
+                          color: theme.textDim, fontSize: 13 * fontScale,
+                          fontWeight: highContrast ? '700' : '600',
+                        }]}
+                        numberOfLines={1}
+                      >
+                        {greeting},
+                      </Text>
+
+                      <TouchableOpacity
+                        onPress={handleLocationPress}
+                        activeOpacity={0.7}
+                        style={styles.locationRow}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Konum: ${location.district}. Değiştirmek için dokun.`}
+                      >
+                        <Ionicons name="location-sharp" size={17} color={theme.primary} style={{ marginRight: 4 }} />
+                        <Text
+                          accessibilityRole="header"
+                          style={[styles.brand, {
+                            color: theme.text, fontSize: 24 * fontScale,
+                            fontWeight: '900',
+                          }]}
+                          numberOfLines={1}
+                        >
+                          {location.district}
+                        </Text>
+                        <Ionicons name="chevron-down" size={14} color={theme.textDim} style={{ marginLeft: 4 }} />
+                      </TouchableOpacity>
+
+                      {homePrefs.showHijriInHeader !== false && hijri ? (
+                        <Text
+                          style={[styles.hijriSubtitle, {
+                            color: theme.textDim, fontSize: 11.5 * fontScale,
+                            fontWeight: highContrast ? '700' : '600',
+                          }]}
+                          numberOfLines={1}
+                        >
+                          {hijri}
+                        </Text>
+                      ) : null}
+                    </View>
+
+                    <View style={styles.headerActions}>
+                      <PressableScale
+                        onPress={cycleFontScale}
+                        accessibilityLabel={`Yazı boyutu: ${FONT_NAMES[fontIdx]}. Değiştirmek için dokun.`}
+                        style={[styles.roundButtonSmall, {
+                          backgroundColor: fontIdx > 0
+                            ? (highContrast ? '#000000' : (theme.primaryGlow || `${theme.primary}18`))
+                            : theme.surface,
+                          borderColor: fontIdx > 0 ? theme.primary : theme.border,
+                          borderWidth: highContrast ? 2 : 1,
+                        }]}
+                      >
+                        <Text style={{
+                          color: fontIdx > 0 ? theme.primary : theme.text,
+                          fontWeight: '900',
+                          fontSize: 11 + fontIdx * 1.5,
+                        }}>
+                          {FONT_LABELS[fontIdx]}
+                        </Text>
+                      </PressableScale>
+
+                      <HeaderIconButton
+                        icon={notificationsOn ? 'notifications-outline' : 'notifications-off-outline'}
+                        badge={notificationsOn}
+                        badgeColor={theme.primary}
+                        onPress={handleNotificationPress}
+                        theme={theme}
+                        active={notificationsOn}
+                        highContrast={highContrast}
+                        accessibilityLabel={`Bildirimler ${notificationsOn ? 'açık' : 'kapalı'}`}
+                      />
+                    </View>
+                  </View>
+
+                  <InfoAlert
+                    error={error}
+                    kerahatInfo={kerahatInfo}
+                    notice={notice}
+                    onDismissNotice={() => setNotice('')}
+                    onRetry={handleRefresh}
                     theme={theme}
                     fontScale={fontScale}
-                    mealEdition={mealEdition}
-                    showArabic={contentShowArabic}
-                    readingMode={readingMode}
-                    initialData={vakitContent?.ayet ?? null}
+                    highContrast={highContrast}
                   />
-                ) : null}
+                </Reveal>
 
-                {widgetsConfig.showDuaCard !== false ? (
-                  <VakitContentCard
-                    kind="dua"
-                    prayerId={activePrayerId}
-                    seed={vakitSeed}
-                    theme={theme}
-                    fontScale={fontScale}
-                    mealEdition={mealEdition}
-                    showArabic={contentShowArabic}
-                    readingMode={readingMode}
-                    initialData={vakitContent?.dua ?? null}
-                  />
-                ) : null}
+                {/* HERO KARTI */}
+                <Reveal animStyle={group1Anim}>
+                  <View style={{ marginBottom: 16 }}>
+                    <Hero
+                      theme={theme}
+                      compact={compact}
+                      fontScale={fontScale}
+                      sourceLabel={sourceLabel}
+                      formattedDate={formattedDate}
+                      hijri={hijri}
+                      nextPrayer={nextPrayer}
+                      previousPrayerDate={previousPrayerDate}
+                      now={now}
+                      refreshing={refreshing}
+                      showProgress={widgetsConfig.showProgressTrack && nextPrayer?.date && previousPrayerDate}
+                      showCountdown={homePrefs.showCountdown !== false}
+                      onRefresh={handleRefresh}
+                      onShare={handleShare}
+                      onLongPress={handleHeroLongPress}
+                      onLayout={handleHeroLayout}
+                      highContrast={highContrast}
+                    />
+                  </View>
+                </Reveal>
 
-                {widgetsConfig.showEsmaCard !== false ? (
-                  <VakitContentCard
-                    kind="esma"
-                    prayerId={activePrayerId}
-                    seed={vakitSeed}
-                    theme={theme}
-                    fontScale={fontScale}
-                    mealEdition={mealEdition}
-                    showArabic={contentShowArabic}
-                    readingMode={readingMode}
-                    initialData={vakitContent?.esma ?? null}
-                  />
-                ) : null}
-              </Section>
-            ) : null}
-          </Reveal>
-        </View>
+                {/* VAKİT ÇİZGİSİ & İLERLEME & BİLDİRİM KARTI */}
+                <Reveal animStyle={group2Anim}>
+                  {prayers.length > 0 && homePrefs.showPrayerStrip !== false ? (
+                    <View style={{ marginBottom: 14 }}>
+                      <PrayerStrip
+                        prayers={prayers}
+                        tomorrowImsak={prayerData?.tomorrowImsak}
+                        now={now}
+                        nextPrayer={nextPrayer}
+                        theme={theme}
+                        fontScale={fontScale}
+                        highContrast={highContrast}
+                      />
+                    </View>
+                  ) : null}
 
-        </View>
-      </ScrollView>
+                  {homePrefs.showDailyProgress !== false ? (
+                    <CompactTimeline
+                      prayers={prayers}
+                      now={now}
+                      theme={theme}
+                      fontScale={fontScale}
+                      highContrast={highContrast}
+                    />
+                  ) : null}
 
-      <ActionSheet
-        visible={sheetOpen}
-        title="Vakit Bilgileri"
-        message="Ne yapmak istersiniz?"
-        actions={sheetActions}
-        onClose={closeSheet}
-        theme={theme}
-        highContrast={highContrast}
-        fontScale={fontScale}
-        centered={isMedium}
-      />
+                  {homePrefs.showNotificationsCard !== false ? (
+                    <NotificationsCard
+                      enabled={notificationsOn}
+                      reminderMinutes={widgetsConfig.reminderBeforeMinutes ?? 15}
+                      onOpenSettings={handleNotificationPress}
+                      theme={theme}
+                      fontScale={fontScale}
+                      highContrast={highContrast}
+                    />
+                  ) : null}
+                </Reveal>
+              </View>
 
-      {prayerData && homePrefs.showStickyHero !== false ? (
-        <StickyMiniHero
-          anim={stickyAnim}
-          nextPrayer={nextPrayer}
-          visible={stickyVisible}
+              <View style={isWide ? styles.colRight : styles.colFull}>
+                {/* HIZLI KISAYOLLAR */}
+                <Reveal animStyle={group3Anim}>
+                  {homePrefs.showQuickActions !== false ? (
+                    <Section
+                      title="Keşfet"
+                      theme={theme}
+                      fontScale={fontScale}
+                      icon="compass-rose"
+                      highContrast={highContrast}
+                    >
+                      <QuickActions
+                        props={{ onOpenQibla, onOpenZikir, onOpenDua, onOpenCalendar }}
+                        theme={theme}
+                        fontScale={fontScale}
+                        highContrast={highContrast}
+                      />
+                    </Section>
+                  ) : null}
+                </Reveal>
+
+                {/* GÜNÜN İSİMLERİ */}
+                <Reveal animStyle={group3Anim}>
+                  {islamicNames.length > 0 && homePrefs.showDailyNames !== false ? (
+                    <Section
+                      title="Günün İsimleri"
+                      subtitle="Günlük seçki"
+                      theme={theme}
+                      fontScale={fontScale}
+                      icon="book-open-variant"
+                      highContrast={highContrast}
+                    >
+                      <DailyNamesCard
+                        female={dailyFemale}
+                        male={dailyMale}
+                        theme={theme}
+                        fontScale={fontScale}
+                        highContrast={highContrast}
+                      />
+                    </Section>
+                  ) : null}
+                </Reveal>
+
+                {/* MANEVİ İÇERİKLER */}
+                <Reveal animStyle={group4Anim}>
+                  {renderManeviSection()}
+                </Reveal>
+              </View>
+            </View>
+          )}
+        </ScrollView>
+
+        <ActionSheet
+          visible={sheetOpen}
+          title="Vakit Bilgileri"
+          message="Ne yapmak istersiniz?"
+          actions={sheetActions}
+          onClose={closeSheet}
+          theme={theme}
+          highContrast={highContrast}
+          fontScale={fontScale}
+          centered={isMedium}
+        />
+
+        {!isSimpleMode && prayerData && homePrefs.showStickyHero !== false ? (
+          <StickyMiniHero
+            anim={stickyAnim}
+            nextPrayer={nextPrayer}
+            visible={stickyVisible}
+            theme={theme}
+            fontScale={fontScale}
+            onPress={scrollToTop}
+            highContrast={highContrast}
+            topInset={insets.top}
+          />
+        ) : null}
+
+        <BottomBar
           theme={theme}
           fontScale={fontScale}
-          onPress={scrollToTop}
+          onPressHome={onOpenHome || scrollToTop}
+          onOpenTools={onOpenTools}
+          onOpenSettings={onOpenSettings}
+          activeTab="home"
           highContrast={highContrast}
-          topInset={insets.top}
         />
-      ) : null}
-
-      <BottomBar
-        theme={theme}
-        fontScale={fontScale}
-        onPressHome={onOpenHome || scrollToTop}
-        onOpenTools={onOpenTools}
-        onOpenSettings={onOpenSettings}
-        activeTab="home"
-        highContrast={highContrast}
-      />
-    </SafeAreaView>
+      </SafeAreaView>
     </ActiveContext.Provider>
   );
 }
@@ -2693,6 +3073,125 @@ const styles = StyleSheet.create({
   },
   kerahatProgressFill: { height: '100%', borderRadius: 2 },
 
+  /* ---------------- BASİT MOD STİLLERİ ---------------- */
+  simpleHero: {
+    borderRadius: RADIUS.xxl,
+    padding: 20,
+    marginBottom: 16,
+  },
+  simpleHeroTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 8,
+  },
+  simpleHeroEyebrow: {
+    fontWeight: '900',
+    letterSpacing: 0.8,
+  },
+  simpleHeroDate: {
+    fontWeight: '600',
+    textTransform: 'capitalize',
+    flexShrink: 1,
+  },
+  simpleHeroMain: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    marginTop: 16,
+    marginBottom: 14,
+    gap: 12,
+  },
+  simpleHeroName: {
+    fontWeight: '900',
+    letterSpacing: -0.5,
+    flexShrink: 1,
+  },
+  simpleHeroTime: {
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
+    letterSpacing: 0.5,
+  },
+  simpleHeroRemainingBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 11,
+    paddingHorizontal: 14,
+    borderRadius: RADIUS.md,
+  },
+  simpleHeroRemainingText: {
+    fontWeight: '800',
+  },
+  simpleHeroFooter: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 14,
+    paddingTop: 14,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  simpleHeroActionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    minHeight: 42,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+  },
+  simpleHeroActionText: {
+    fontWeight: '800',
+  },
+
+  simpleListCard: {
+    borderRadius: RADIUS.xl,
+    padding: 16,
+    marginBottom: 20,
+  },
+  simpleListHeader: {
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    marginBottom: 10,
+  },
+  simpleListRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 13,
+    paddingHorizontal: 12,
+    minHeight: 50,
+  },
+  simpleListLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  simpleListName: {
+    letterSpacing: 0.1,
+  },
+  simpleListNextTag: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  simpleListNextTagText: {
+    fontSize: 9.5,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  simpleListRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  simpleListTime: {
+    fontVariant: ['tabular-nums'],
+  },
+
+  /* ---------------- STANDART MOD STİLLERİ ---------------- */
   heroShadowContainer: {},
   hero: {
     padding: 20,
@@ -2832,7 +3331,6 @@ const styles = StyleSheet.create({
   compactTimelineBar: { height: 5, borderRadius: 3, overflow: 'hidden' },
   compactTimelineBarFill: { height: '100%', borderRadius: 3 },
 
-  /* ✅ YENİ: Bildirim kartı */
   notifCard: {
     flexDirection: 'row',
     alignItems: 'center',

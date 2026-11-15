@@ -9,6 +9,9 @@ import {
   THEME_ACCENT_COMPAT,
   VALID_THEME_MODES,
   VALID_WIDGET_THEME_MODES,
+  DEFAULT_LIGHT_THEME,
+  DEFAULT_DARK_THEME,
+  DEFAULT_ACCENT_COLOR,
 } from '../theme/colors';
 import {
   HOME_LAYOUT_THEMES,
@@ -23,7 +26,6 @@ import { DEFAULT_PRICES } from '../services/zekatApi';
 
 /* ================================================================
    Geriye dönük uyumluluk için tema listelerini dışa aktar
-   (Bazı ekranlar useAppStore'dan HOME_LAYOUT_MODES import ediyordu)
    ================================================================ */
 export { HOME_LAYOUT_THEMES, HOME_LAYOUT_MODES };
 
@@ -92,7 +94,7 @@ const DEFAULT_ZEKAT_ASSET_DATA = {
 };
 
 const DEFAULT_THEME_MODE = 'dynamic';
-const DEFAULT_ACCENT = 'emerald';
+const DEFAULT_ACCENT = DEFAULT_ACCENT_COLOR; // 'emerald' (Türbe Yeşili)
 const DEFAULT_PRAYER_METHOD = 13;
 const DEFAULT_TUNE_MINUTES = 0;
 const DEFAULT_SHOW_ARABIC = true;
@@ -135,23 +137,29 @@ const isValidReadingMode = (mode) => VALID_READING_MODES.includes(mode);
 const isValidReadingFontScale = (v) =>
   VALID_READING_FONT_SCALES.some((s) => Math.abs(s - Number(v)) < 0.001);
 
-const resolveDynamicBase = (date = new Date()) => {
-  const hour = date.getHours();
-  return hour < 6 || hour >= 19 ? 'dark' : 'modernLight';
+const resolveDynamicAnchorMode = (date = new Date()) => {
+  const hours = date.getHours() + date.getMinutes() / 60;
+  return hours >= 6.5 && hours < 18.5 ? DEFAULT_LIGHT_THEME : DEFAULT_DARK_THEME;
 };
 
 const isAccentCompatibleWithTheme = (themeMode, accentId) => {
   if (!isValidAccent(accentId)) return false;
-  const resolvedMode = themeMode === 'dynamic' ? resolveDynamicBase() : themeMode;
-  const allowed = THEME_ACCENT_COMPAT[resolvedMode];
+  if (themeMode === 'dynamic') {
+    const lightAllowed = THEME_ACCENT_COMPAT[DEFAULT_LIGHT_THEME];
+    const darkAllowed = THEME_ACCENT_COMPAT[DEFAULT_DARK_THEME];
+    const okLight = !lightAllowed || lightAllowed.includes(accentId);
+    const okDark = !darkAllowed || darkAllowed.includes(accentId);
+    return okLight && okDark;
+  }
+  const allowed = THEME_ACCENT_COMPAT[themeMode];
   if (!allowed) return true;
   return allowed.includes(accentId);
 };
 
 const resolveAccentForTheme = (themeMode, currentAccent) => {
   if (isAccentCompatibleWithTheme(themeMode, currentAccent)) return currentAccent;
-  const resolvedMode = themeMode === 'dynamic' ? resolveDynamicBase() : themeMode;
-  const allowed = THEME_ACCENT_COMPAT[resolvedMode];
+  if (themeMode === 'dynamic') return DEFAULT_ACCENT;
+  const allowed = THEME_ACCENT_COMPAT[themeMode];
   if (!allowed || allowed.length === 0) return DEFAULT_ACCENT;
   const firstValid = allowed.find((id) => isValidAccent(id));
   return firstValid || DEFAULT_ACCENT;
@@ -284,15 +292,15 @@ export const useAppStore = create(
       /* ================================================================
          Tema & Layout
          ================================================================ */
-      getTheme: () => {
+      getTheme: (now = new Date()) => {
         const { themeMode, accentColor } = get();
-        const baseMode = themeMode === 'dynamic' ? resolveDynamicBase() : themeMode;
         const safeAccent = isAccentCompatibleWithTheme(themeMode, accentColor)
           ? accentColor
           : resolveAccentForTheme(themeMode, accentColor);
         return buildTheme(
-          baseMode,
+          themeMode,
           isValidAccent(safeAccent) ? safeAccent : DEFAULT_ACCENT,
+          now,
         );
       },
 
@@ -338,7 +346,12 @@ export const useAppStore = create(
 
       getAvailableAccents: (themeModeArg) => {
         const mode = themeModeArg ?? get().themeMode;
-        const resolvedMode = mode === 'dynamic' ? resolveDynamicBase() : mode;
+        if (mode === 'dynamic') {
+          const lightAllowed = THEME_ACCENT_COMPAT[DEFAULT_LIGHT_THEME] || Object.keys(ACCENT_COLORS);
+          const darkAllowed = THEME_ACCENT_COMPAT[DEFAULT_DARK_THEME] || Object.keys(ACCENT_COLORS);
+          return lightAllowed.filter((id) => darkAllowed.includes(id) && isValidAccent(id));
+        }
+        const resolvedMode = mode === 'dynamic' ? resolveDynamicAnchorMode() : mode;
         const allowed = THEME_ACCENT_COMPAT[resolvedMode];
         if (!allowed) return Object.keys(ACCENT_COLORS);
         return allowed.filter((id) => isValidAccent(id));
@@ -728,7 +741,7 @@ export const useAppStore = create(
     {
       name: 'nida-app-storage',
       storage: createJSONStorage(() => AsyncStorage),
-      version: 21,
+      version: 22,
 
       partialize: (state) => {
         const out = {};
@@ -863,7 +876,7 @@ export const useAppStore = create(
 );
 
 /* ================================================================
-   Selectors
+   Selectors — Dinamik modda her 5 dakikada bir kademeli ton güncellenir
    ================================================================ */
 
 let themeCache = null;
@@ -873,9 +886,16 @@ export function useTheme() {
   const themeMode = useAppStore((s) => s.themeMode);
   const accentColor = useAppStore((s) => s.accentColor);
   const getTheme = useAppStore((s) => s.getTheme);
-  const key = `${themeMode}:${accentColor}`;
+
+  const now = new Date();
+  const timeBucket =
+    themeMode === 'dynamic'
+      ? `${now.getHours()}-${Math.floor(now.getMinutes() / 5)}`
+      : 'static';
+
+  const key = `${themeMode}:${accentColor}:${timeBucket}`;
   if (key !== themeCacheKey) {
-    themeCache = getTheme();
+    themeCache = getTheme(now);
     themeCacheKey = key;
   }
   return themeCache;

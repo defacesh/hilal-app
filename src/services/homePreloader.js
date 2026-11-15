@@ -13,6 +13,11 @@
  *   • Zaman aşımı koruması (Timeout guard)
  *   • Multi-resource cache (vakit + hijri + isim + içerik)
  *   • In-flight request deduplication
+ *
+ * ✅ v1.0 düzeltmeleri:
+ *   • Cache kaynak damgası artık kullanılmıyor — "Yedek" etiketi hatası giderildi
+ *   • Diyanet timeout'u 2.5sn → 4.5sn (yavaş ağda Aladhan'a düşmez)
+ *   • writeLastPrayerData artık "source" alanını yazmıyor
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -56,11 +61,11 @@ const RETRY_CONFIG = Object.freeze({
   backoff: 1.5,
 });
 
-const NETWORK_TIMEOUT_MS = 3500; // Ağ istekleri için maks 3.5 sn limit
-const PRAYER_TIMEOUT_MS = 6000;  // Vakit isteği (Diyanet + yedek) toplam limiti
-const DIYANET_TIMEOUT_MS = 2500; // Diyanet yanıt vermezse hızlıca yedeğe geç
+const NETWORK_TIMEOUT_MS = 3500;  // Ağ istekleri için maks 3.5 sn limit
+const PRAYER_TIMEOUT_MS = 6000;   // Vakit isteği (Diyanet + yedek) toplam limiti
+const DIYANET_TIMEOUT_MS = 4500;  // ✅ v1.0: 2500 → 4500 — yavaş ağda Aladhan'a düşmesin
 const ALADHAN_TIMEOUT_MS = 3000;
-const NETINFO_TIMEOUT_MS = 700;  // NetInfo asla açılışı bekletmesin
+const NETINFO_TIMEOUT_MS = 700;   // NetInfo asla açılışı bekletmesin
 const DEBUG = typeof __DEV__ !== 'undefined' && __DEV__;
 
 /* ================================================================
@@ -241,19 +246,23 @@ export async function readLastPrayerData(expectedLocation, { allowLegacy = true 
     savedAt: savedAt || null,
     locationKey: entry.locationKey || null,
     paramsKey: entry.paramsKey || null,
-    source: 'cache',
+    source: 'cache', // ✅ v1.0: sabit — cache her zaman 'cache' kaynaklıdır
     legacy,
     fresh,
   };
 }
 
-function writeLastPrayerData(data, location, paramsKey = null, source = null) {
+/**
+ * ✅ v1.0: `source` parametresi kaldırıldı.
+ * Cache yalnızca veriyi saklar, hangi API'den geldiği bilgisi geçmişe taşınmaz.
+ * "Yedek" etiketi bug'ının kökü buydu.
+ */
+function writeLastPrayerData(data, location, paramsKey = null) {
   const payload = {
     data,
     savedAt: Date.now(),
     locationKey: getLocationKey(location) || getLocationKey(data?.location),
     paramsKey,
-    source,
   };
   return writeCache(CACHE_KEYS.prayer, payload);
 }
@@ -453,7 +462,10 @@ async function _runPreload({
 
   const state = {
     prayerData: cachedPrayer?.data ?? null,
-    prayerSource: cachedPrayer ? (prayerFresh ? (cachedPrayer.source || 'cache') : 'cache') : null,
+    // ✅ v1.0 KRİTİK DÜZELTME:
+    // Cache varsa kaynak her zaman 'cache'. Eski 'aladhan' damgası taşınmaz.
+    // Gerçek API kaynağı yalnızca network çağrısı başarılı olduğunda set edilir.
+    prayerSource: cachedPrayer ? 'cache' : null,
     islamicNames: cachedNames?.data ?? [],
     hijriData: cachedHijri?.data ?? null,
     vakitContent: cachedVakit?.data ?? { ayet: null, dua: null, esma: null },
@@ -521,8 +533,9 @@ async function _runPreload({
             (res) => {
               if (res?.data) {
                 state.prayerData = res.data;
-                state.prayerSource = res.source;
-                writeLastPrayerData(res.data, location, paramsKey, res.source);
+                state.prayerSource = res.source; // ✅ Burada gerçek kaynak ('diyanet' veya 'aladhan')
+                // ✅ v1.0: writeLastPrayerData artık source parametresi almıyor
+                writeLastPrayerData(res.data, location, paramsKey);
                 emit('prayer');
               } else if (!state.prayerData) {
                 addError(errors, 'Namaz vakitleri yüklenemedi.');
@@ -607,7 +620,7 @@ async function _runPreload({
     islamicNames: state.islamicNames,
     hijriData: finalHijri,
     vakitContent: state.vakitContent,
-    source: state.prayerSource,
+    source: state.prayerSource, // 'cache' | 'diyanet' | 'aladhan' | null
     errors,
     online,
     elapsedMs: Date.now() - startedAt,
