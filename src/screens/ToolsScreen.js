@@ -125,7 +125,7 @@ const TOPIC_META = {
   'tevhid-iman':        { icon: 'star-four-points',        iconType: 'mci', category: 'İnanç' },
   'meleklere-iman':     { icon: 'creation',                iconType: 'mci', category: 'İnanç' },
   'peygamberlere-iman': { icon: 'account-voice',           iconType: 'mci', category: 'İnanç' },
-  'kutsal-kitaplar':    { icon: 'book-cross',              iconType: 'mci', category: 'İnanç' },
+  'kutsal-kitaplar':    { icon: 'book',              iconType: 'mci', category: 'İnanç' },
   'ahiret-inanci':      { icon: 'weather-sunset-up',       iconType: 'mci', category: 'İnanç' },
   'namaz-cesitleri':    { icon: 'format-list-checks',      iconType: 'mci', category: 'Namaz' },
   'hac-ve-umre':        { icon: 'kaaba',                   iconType: 'mci', category: 'Hac' },

@@ -18,8 +18,12 @@ import {
   KeyboardAvoidingView,
   BackHandler,
   Image,
-  InteractionManager,
 } from 'react-native';
+import * as ReactNative from 'react-native';
+
+const InteractionManager = ReactNative.InteractionManager || {
+  runAfterInteractions: (cb) => setTimeout(cb, 50),
+};
 import { AppText as Text, AppTextInput as TextInput } from '../components/AppText';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
