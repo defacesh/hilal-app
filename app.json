@@ -43,65 +43,6 @@
     },
     "plugins": [
       [
-        "react-native-android-widget",
-        {
-          "widgets": [
-            {
-              "name": "NidaWidget",
-              "label": "Hilal · Dinamik Akıllı Widget",
-              "minWidth": "110dp",
-              "minHeight": "110dp",
-              "targetCellWidth": 4,
-              "targetCellHeight": 2,
-              "maxResizeWidth": "400dp",
-              "maxResizeHeight": "300dp",
-              "resizeMode": "horizontal|vertical",
-              "description": "Dinamik Akilli Namaz Vakti Widget'i",
-              "updatePeriodMillis": 1800000
-            },
-            {
-              "name": "NidaSmallWidget",
-              "label": "Hilal · Vakit & Geri Sayım (Küçük)",
-              "minWidth": "110dp",
-              "minHeight": "110dp",
-              "targetCellWidth": 2,
-              "targetCellHeight": 2,
-              "maxResizeWidth": "180dp",
-              "maxResizeHeight": "180dp",
-              "resizeMode": "none",
-              "description": "Siradaki vakit ve kalan sure sayaci",
-              "updatePeriodMillis": 1800000
-            },
-            {
-              "name": "NidaMediumWidget",
-              "label": "Hilal · Vakit & Ayet / Hadis / Dua (Orta)",
-              "minWidth": "250dp",
-              "minHeight": "110dp",
-              "targetCellWidth": 4,
-              "targetCellHeight": 2,
-              "maxResizeWidth": "400dp",
-              "maxResizeHeight": "200dp",
-              "resizeMode": "horizontal|vertical",
-              "description": "Siradaki vakit, geri sayim ve vaktin ayet/hadis/duasi",
-              "updatePeriodMillis": 1800000
-            },
-            {
-              "name": "NidaLargeWidget",
-              "label": "Hilal · İmsakiye, Geri Sayım & Ayet / Hadis / Dua (Büyük)",
-              "minWidth": "250dp",
-              "minHeight": "250dp",
-              "targetCellWidth": 4,
-              "targetCellHeight": 4,
-              "maxResizeWidth": "400dp",
-              "maxResizeHeight": "400dp",
-              "resizeMode": "horizontal|vertical",
-              "description": "Tam gunluk imsakiye seridi, geri sayim ve vaktin ayeti/hadisi/duasi",
-              "updatePeriodMillis": 1800000
-            }
-          ]
-        }
-      ],
-      [
         "expo-location",
         {
           "locationAlwaysAndWhenInUsePermission": "Namaz vakitlerini bulunduğunuz konuma göre hesaplamak için konumunuza ihtiyaç duyuyoruz.",
@@ -123,8 +64,7 @@
         {
           "android": {
             "enableProguardInReleaseBuilds": true,
-            "enableShrinkResourcesInReleaseBuilds": true,
-            "extraProguardRules": "-keep class androidx.work.** { *; }\n-keep class * extends androidx.work.Worker { *; }\n-keep class androidx.work.impl.WorkDatabase* { *; }\n-keep class com.reactnativeandroidwidget.** { *; }"
+            "enableShrinkResourcesInReleaseBuilds": true
           }
         }
       ],
