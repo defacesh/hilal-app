@@ -99,20 +99,24 @@ Amacımız sade, kullanışlı ve erişilebilir bir deneyim sunarak günlük iba
 
 ## 📱 Ekran Görüntüleri
 
-<p align="center">
-  <i>Uygulama ekran görüntüleri bu bölüme eklenebilir.</i>
-</p>
-
-<!--
-Ekran görüntülerini assets/screenshots klasörüne ekledikten sonra
-aşağıdaki örneği kullanabilirsiniz:
-
-<p align="center">
-  <img src="./assets/screenshots/home.png" width="240" alt="Hilal ana ekranı" />
-  <img src="./assets/screenshots/prayer-times.png" width="240" alt="Namaz vakitleri" />
-  <img src="./assets/screenshots/qibla.png" width="240" alt="Kıble pusulası" />
-</p>
--->
+<div align="center">
+  <table>
+    <tr>
+      <td align="center"><b>Ana Sayfa</b></td>
+      <td align="center"><b>Araçlar</b></td>
+      <td align="center"><b>Kur'an-ı Kerim</b></td>
+      <td align="center"><b>Dualar</b></td>
+      <td align="center"><b>Kıble Pusulası</b></td>
+    </tr>
+    <tr>
+      <td align="center"><img src="./Screenshots/Ana%20Sayfa.jpeg" width="180" alt="Ana Sayfa" /></td>
+      <td align="center"><img src="./Screenshots/Ara%C3%A7lar.jpeg" width="180" alt="Araçlar" /></td>
+      <td align="center"><img src="./Screenshots/Kuran.jpeg" width="180" alt="Kur'an-ı Kerim" /></td>
+      <td align="center"><img src="./Screenshots/Dualar.jpeg" width="180" alt="Dualar" /></td>
+      <td align="center"><img src="./Screenshots/K%C4%B1ble.jpeg" width="180" alt="Kıble Pusulası" /></td>
+    </tr>
+  </table>
+</div>
 
 ---
 
