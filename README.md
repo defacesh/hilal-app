@@ -1,132 +1,267 @@
-# 🌙 Hilal - İslami Yaşam & Namaz Vakitleri Uygulaması
+# 🌙 Hilal — İslami Yaşam ve Namaz Vakitleri
 
 <p align="center">
-  <img src="./assets/icon.png" alt="Hilal Logo" width="120" style="border-radius: 24px;" />
+  <img src="./assets/icon.png" alt="Hilal uygulama logosu" width="120" />
 </p>
 
 <p align="center">
-  <b>Sade, modern, reklamsız ve tamamen gizlilik odaklı açık kaynak İslami asistan.</b>
+  <strong>İbadetlerinizi takip edin, namaz vakitlerini kaçırmayın ve günlük manevi yaşamınızı kolaylaştırın.</strong>
 </p>
 
 <p align="center">
-  <a href="https://github.com/defacesh/hilal-app/blob/main/LICENSE"><img src="https://img.shields.io/badge/Lisans-MIT-emerald.svg" alt="License"></a>
-  <a href="https://expo.dev/"><img src="https://img.shields.io/badge/Expo-SDK%2058-blue.svg" alt="Expo SDK 58"></a>
-  <a href="https://reactnative.dev/"><img src="https://img.shields.io/badge/React%20Native-0.88-cyan.svg" alt="React Native"></a>
-  <a href="https://github.com/defacesh/hilal-app/stargazers"><img src="https://img.shields.io/github/stars/defacesh/hilal-app?style=flat&color=amber" alt="Stars"></a>
+  <a href="https://github.com/defacesh/hilal-app/releases">İndir</a> ·
+  <a href="#-islami-araclar">Özellikler</a> ·
+  <a href="#indirme-ve-kurulum">Kurulum</a> ·
+  <a href="#gelistirici">Geliştirici</a>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Expo-SDK%2058-000020?logo=expo" alt="Expo SDK 58" />
+  <img src="https://img.shields.io/badge/React%20Native-0.88-61DAFB?logo=react" alt="React Native 0.88" />
+  <img src="https://img.shields.io/badge/Platform-Android%20%7C%20iOS-green" alt="Android ve iOS" />
+  <img src="https://img.shields.io/badge/License-MIT-blue" alt="MIT License" />
 </p>
 
 ---
 
-## 📖 Hakkında
+## 📖 İçindekiler
 
-**Hilal**, günlük ibadetlerinizi ve İslami yaşantınızı kolaylaştırmak için modern mobil standartlar ve yüksek performans gözetilerek geliştirilmiş kapsamlı bir mobil uygulamadır.
-
-Piyasadaki karmaşık, reklam dolu ve kullanıcı verisi toplayan uygulamaların aksine Hilal; **sıfır reklam**, **üst düzey gizlilik** ve **akıcı kullanıcı deneyimi** prensiplerini benimser. Tüm hesaplamalar ve kullanıcı tercihleri yalnızca kullanıcının kendi cihazında güvenle saklanır.
+- [🌙 Hilal Hakkında](#-hilal-hakkında)
+- [🌟 İslami Araçlar](#islami-araclar)
+- [📱 Ekran Görüntüleri](#-ekran-görüntüleri)
+- [📥 İndirme ve Kurulum](#indirme-ve-kurulum)
+- [🛠️ Geliştirme Ortamı](#️-geliştirme-ortamı)
+- [🔐 Gizlilik](#-gizlilik)
+- [🤝 Katkıda Bulunma](#-katkıda-bulunma)
+- [👨‍💻 Geliştirici](#gelistirici)
+- [📄 Lisans](#-lisans)
 
 ---
 
-## ✨ Özellikler
+## 🌙 Hilal Hakkında
 
-### 🕌 Namaz Vakitleri & Bildirimler
-- **Türkiye (81 İl & İlçe Çevrimdışı) & Yurt Dışı Konum Seçimi:** GPS ile otomatik konum tespiti, Türkiye için internet gerektirmeyen 81 il ve tüm ilçeler veritabanı, yurt dışı için dünya geneli şehir araması.
-- **Hassas Hesaplama:** Diyanet İşleri Başkanlığı ve uluslararası astronomik hesaplama yöntemleri (MWL, ISNA, Umm Al-Qura vb.) ile sapma dakikası ayarı.
-- **Akıllı Geri Sayım:** Bir sonraki vakte kalan süreyi dinamik olarak gösteren arayüz ve kerahat vakti uyarıları.
-- **Ezan & Vakit Hatırlatıcıları:** Her vakit için özelleştirilebilir bildirim süreleri, cuma hatırlatması ve sessiz saatler modu.
+Hilal, Müslümanların günlük ibadetlerini daha kolay takip edebilmeleri için geliştirilmiş bir İslami yaşam uygulamasıdır.
+
+Namaz vakitlerinden kıble yönüne, Kur'an-ı Kerim'den günlük dualara kadar ihtiyaç duyabileceğiniz araçları tek bir yerde bir araya getirir.
+
+Amacımız sade, kullanışlı ve erişilebilir bir deneyim sunarak günlük ibadetlerinizi düzenlemenize yardımcı olmaktır.
+
+<a id="islami-araclar"></a>
+
+## 🌟 İslami Araçlar
+
+### 🕌 Namaz Vakitleri
+- Günlük namaz vakitlerini görüntüleme
+- Bulunduğunuz konuma göre vakitleri hesaplama
+- İmsak, Güneş, Öğle, İkindi, Akşam ve Yatsı vakitlerini takip etme
+- Yaklaşan namaz vaktini görüntüleme
+
+### 🔔 Namaz Bildirimleri
+- Namaz vakitleri için bildirim hatırlatmaları
+- Namazdan önce hatırlatma ayarlama
+- Bildirim sesini ve titreşimini yönetme
+- Bildirim tercihlerini uygulama ayarlarından düzenleme
 
 ### 🧭 Kıble Pusulası
-- Manyetik sensör ve GPS destekli yüksek hassasiyetli görsel kıble pusulası.
-- Manyetik sapma açısı (declination) hesabı ve kalibrasyon desteği.
+- Kıble yönünü bulma
+- Cihazın pusula ve sensör özelliklerinden yararlanma
+- Kıble yönünü kolayca görüntüleme
 
 ### 📖 Kur'an-ı Kerim
-- Sure, cüz ve sayfa bazlı akıcı okuma deneyimi (çevrimdışı ve çevrimiçi kaynak desteği).
-- Tam metin, sadece Arapça, sadece okunuş veya sadece meal gibi özelleştirilebilir okuma modları.
-- Ayraç ve son okunan yeri otomatik hatırlama.
+- Sure ve ayetleri görüntüleme
+- Kur'an okumayı kolaylaştıran sade arayüz
 
-### 📿 Zikirmatik & Dualar
-- **Gelişmiş Zikirmatik:** Hedef belirleme, sesli ve dokunsal (haptic) geri bildirimler, özel zikirler ekleme.
-- **Kapsamlı Dua Kütüphanesi:** Kur'an'dan dualar, Peygamber duaları, günlük dualar, Arapça metin, Türkçe okunuş ve mealleri.
-- **Namaz Sonrası Tesbihatı:** Sabah, öğle, ikindi, akşam ve yatsı namazı tesbihatları ve otomatik ilerleme.
+### 🤲 Dualar
+- Günlük okunabilecek dualar
+- Dua içeriklerine kolay erişim
 
-### 🌟 Diğer İslami Araçlar
-- **Esma-ül Hüsna:** Allah'ın 99 ismi, Arapça yazılışı, ebced değerleri, anlamları ve faziletleri.
-- **Hicri Takvim & Dini Günler:** Kandiller, Ramazan başlangıcı, bayramlar ve önemli İslami günler.
-- **Ramazan İmsakiyesi:** İftar ve sahur geri sayımı, özel Ramazan duaları.
-- **Zekât Hesaplayıcı:** Altın, gümüş, nakit para, hisse ve ticaret mallarına göre nisap miktarı ve zekât hesabı.
-- **Namaz Rehberi:** 5 vakit namaz, cuma, bayram, cenaze ve teravih namazlarının kılınışı.
-- **Siyer & Veda Hutbesi:** Peygamber Efendimiz'in (s.a.v.) hayatı ve Veda Hutbesi'nin tam metni.
-- **Dini Terimler Sözlüğü & İslami Rüya Tabirleri.**
+### 💚 Esmaül Hüsna
+- Allah'ın güzel isimlerini görüntüleme
+- İsimlerin anlamlarını inceleme
 
-### 📱 Android Dinamik Widget Desteği
-- Ana ekranınızdan uygulamayı açmadan bir sonraki vakti ve kalan süreyi takip edebileceğiniz yerel Android widget'ları (Küçük 2x2, Orta 4x2 ve Büyük 4x4 imsakiye görünümü).
+### 📿 Zikirmatik
+- Zikir sayacı
+- Günlük zikir takibi
 
-### 🎨 Görünüm & Erişilebilirlik
-- **Zengin Tema ve Renk Seçenekleri:** Canlı önizlemeli 11 farklı tema ve 29 uyumlu vurgu rengi.
-- **Kapsamlı Erişilebilirlik:** Canlı önizlemeli yazı boyutu seçici, yüksek kontrast modu, disleksi dostu yazı tipi (OpenDyslexic), büyük dokunma hedefleri, animasyon azaltma ve yaşlı/sade kullanım için Basit Mod.
+### 🌅 Günlük Manevi İçerikler
+- Günün ayeti
+- Günün duası
+- Esma hatırlatmaları
+- İbadet ve ilerleme takibi
 
----
-
-## 🔒 Gizlilik Politikası
-
-- **Veri Toplanmaz:** Hilal, hiçbir kişisel verinizi sunuculara göndermez, analiz (telemetry) veya reklam kimliği takibi yapmaz.
-- **Çevrimdışı Çalışır:** İnternet bağlantınız olmasa dahi önceden indirilen vakit verileri, Türkiye il/ilçe konumları ve dahili içerikler çalışmaya devam eder.
-- **Reklamsız:** İbadet anında dikkatinizi dağıtacak hiçbir reklam veya sponsorlu içerik barındırmaz.
+### ⚙️ Kişiselleştirme
+- Görünüm ve tema seçenekleri
+- Ana ekran bileşenlerini yönetme
+- Bildirim tercihlerini düzenleme
+- Uygulama deneyimini kişiselleştirme
 
 ---
 
-## 🛠️ Kurulum & Geliştirme
+## 📱 Ekran Görüntüleri
 
-Projeyi yerel ortamınızda çalıştırmak için aşağıdaki adımları takip edebilirsiniz:
+<p align="center">
+  <i>Uygulama ekran görüntüleri bu bölüme eklenebilir.</i>
+</p>
+
+<!--
+Ekran görüntülerini assets/screenshots klasörüne ekledikten sonra
+aşağıdaki örneği kullanabilirsiniz:
+
+<p align="center">
+  <img src="./assets/screenshots/home.png" width="240" alt="Hilal ana ekranı" />
+  <img src="./assets/screenshots/prayer-times.png" width="240" alt="Namaz vakitleri" />
+  <img src="./assets/screenshots/qibla.png" width="240" alt="Kıble pusulası" />
+</p>
+-->
+
+---
+
+<a id="indirme-ve-kurulum"></a>
+
+## 📥 İndirme ve Kurulum
+
+### Android
+
+Hilal'in Android sürümünü GitHub Releases sayfasından indirebilirsiniz.
+
+<p align="center">
+  <a href="https://github.com/defacesh/hilal-app/releases/download/v1.0.0/Hilal-App_v1.0.0.apk">
+    <img src="https://img.shields.io/badge/Android-APK%20İndir-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android APK indir" />
+  </a>
+</p>
+
+**Kurulum adımları:**
+1. APK dosyasını indirin.
+2. Android cihazınızda indirdiğiniz dosyayı açın.
+3. Gerekirse cihazınızın uygulama yükleme iznini onaylayın.
+4. Kurulumu tamamlayarak Hilal'i kullanmaya başlayın.
+
+> Not: Android, Play Store dışından yüklenen uygulamalar için ek izin isteyebilir. APK dosyasını yalnızca güvendiğiniz resmî proje kaynağından indirin.
+
+### GitHub Releases
+
+Diğer sürümleri ve yayın notlarını görmek için:
+
+[Hilal Releases sayfası](https://github.com/defacesh/hilal-app/releases)
+
+### iOS
+
+iOS sürümünün dağıtımı ve kullanılabilirliği proje yayınlarında duyurulacaktır.
+
+---
+
+## 🛠️ Geliştirme Ortamı
+
+Projeyi bilgisayarınızda çalıştırmak için aşağıdaki adımları izleyebilirsiniz.
 
 ### Gereksinimler
-- [Node.js](https://nodejs.org/) (v18 veya üzeri önerilir)
-- [Git](https://git-scm.com/)
-- [Expo CLI](https://docs.expo.dev/)
 
-### Adımlar
+- Node.js
+- npm
+- Expo CLI / Expo araçları
+- Android Studio veya Xcode (yerel derleme için)
 
-1. **Depoyu Klonlayın:**
-   ```bash
-   git clone [https://github.com/defacesh/hilal-app.git](https://github.com/defacesh/hilal-app.git)
-   cd hilal-app
+### Projeyi klonlayın
 
+```bash
+git clone https://github.com/defacesh/hilal-app.git
 ```
 
-2. **Bağımlılıkları Yükleyin:**
+### Proje klasörüne girin
+
+```bash
+cd hilal-app
+```
+
+### Bağımlılıkları yükleyin
+
 ```bash
 npm install
-
 ```
 
+### Geliştirme sunucusunu başlatın
 
-3. **Geliştirici Sunucusunu Başlatın:**
 ```bash
 npx expo start
-
 ```
 
+Expo tarafından gösterilen QR kodu uyumlu cihazınızla tarayarak uygulamayı çalıştırabilirsiniz.
 
-4. **Uygulamayı Cihazda / Emülatörde Çalıştırın:**
-* **Android:** `npx expo run:android`
-* **iOS:** `npx expo run:ios`
-* Veya Expo Go / Development Client ile terminaldeki QR kodu taratarak test edin.
+### Android üzerinde çalıştırma
 
+```bash
+npx expo run:android
+```
 
+### iOS üzerinde çalıştırma
+
+```bash
+npx expo run:ios
+```
+
+> Not: iOS yerel derlemesi için macOS ve Xcode gerekir. Expo Go ile desteklenmeyen yerel modüller için development build kullanılması gerekebilir.
 
 ---
+
+## 🔐 Gizlilik
+
+Hilal, kullanıcı deneyimini ve kişisel verilerin korunmasını önemseyen bir yaklaşımla geliştirilmektedir.
+
+Uygulamanın kullandığı izinler özelliklere bağlıdır:
+
+- **Konum:** Bulunduğunuz yere göre namaz vakitlerini hesaplamak için kullanılabilir.
+- **Bildirimler:** Namaz vakti hatırlatmaları göndermek için kullanılır.
+- **Sensörler:** Kıble pusulasının çalışmasına yardımcı olur.
+
+İzinler, ilgili özelliklerin çalışması için gerektiğinde istenir.
+
+Uygulamanın veri işleme kapsamı, kullanılan üçüncü taraf kütüphaneler ve ağ servisleriyle birlikte değerlendirilmelidir. Gizlilikle ilgili kesin bilgiler için projenin güncel uygulama kodu ve bağımlılıkları esas alınmalıdır.
+
+---
+
+## 🤝 Katkıda Bulunma
+
+Hilal'i geliştirmeye katkıda bulunmak isterseniz katkılarınızı memnuniyetle karşılarız.
+
+1. Projeyi Fork edin.
+2. Yeni bir branch oluşturun.
+3. Değişikliklerinizi yapın.
+4. Gerekli testleri gerçekleştirin.
+5. Pull Request gönderin.
+
+Hata bildirimleri ve özellik önerileri için GitHub Issues bölümünü kullanabilirsiniz.
+
+[GitHub Issues](https://github.com/defacesh/hilal-app/issues)
+
+---
+
+<a id="gelistirici"></a>
 
 ## 👨‍💻 Geliştirici
 
-* **Geliştirici:** Hasan Hüseyin KARAKAYA
-* **GitHub:** [@defacesh](https://github.com/defacesh)
-* **İletişim:** [krkyhsn@proton.me](https://www.google.com/search?q=mailto%3Akrkyhsn%40proton.me)
-* **Proje Deposu:** [https://github.com/defacesh/hilal-app](https://github.com/defacesh/hilal-app)
+**Hilal**, [defacesh](https://github.com/defacesh) tarafından geliştirilmektedir.
+
+- GitHub: [@defacesh](https://github.com/defacesh)
+- E-posta: [krkyhsn@proton.me](mailto:krkyhsn@proton.me)
+
+Görüş, öneri ve katkılarınız için iletişime geçebilirsiniz.
 
 ---
 
-## 📄 Lisans ve Atıf
+## 📄 Lisans
 
-Bu proje [MIT Lisansı](https://www.google.com/search?q=LICENSE) kapsamında açık kaynak olarak lisanslanmıştır.
+Bu proje MIT Lisansı kapsamında sunulmaktadır.
 
-Projenin kodlarını, bileşenlerini veya mimari altyapısını kendi projelerinizde kullanmanız durumunda, lisans gereği telif hakkı bildirimini korumanız ve aşağıdaki şekilde kaynak/atıf belirtmeniz gerekmektedir:
+Ayrıntılar için [LICENSE](./LICENSE) dosyasını inceleyebilirsiniz.
 
-> **Kaynak / Atıf:** *Hilal - İslami Araçlar* — Geliştirici: **Hasan Hüseyin KARAKAYA** ([https://github.com/defacesh/hilal-app](https://github.com/defacesh/hilal-app))
+---
+
+<p align="center">
+  🌙 <strong>Hilal</strong>
+  <br />
+  <i>İbadetlerinize eşlik eden sade bir yol arkadaşı.</i>
+</p>
+
+<p align="center">
+  <a href="#-hilal-hakkında">Yukarı çık ↑</a>
+</p>
