@@ -18,7 +18,7 @@ import {
 } from 'react-native';
 import { AppText as Text, AppTextInput as TextInput } from '../components/AppText';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import {
   useAppStore, useReadingFontScale,
 } from '../store/useAppStore';
@@ -206,13 +206,12 @@ const GroupContainer = ({ children, theme, highContrast, styles }) => (
 );
 
 /* ================================================================
-   AssetInput — TL için özel görünüm eklendi
+   AssetInput — TL için özel görünüm
    ================================================================ */
 const AssetInput = memo(({
   label, value, onChangeText, unit, hint, theme, styles, highContrast,
   largeTouchTargets, placeholder = '0',
 }) => {
-  // "TL" ise para birimi vurgusu yapalım (daha büyük, letter-spacing)
   const isCurrencyTL = unit === 'TL';
   const isCurrencyForeign = unit === '$' || unit === '€';
   const isGram = unit === 'gr';
@@ -334,27 +333,38 @@ const ModeToggle = memo(function ModeToggle({ mode, onChange, theme, highContras
 /* ================================================================
    Expandable Info Card
    ================================================================ */
-const ExpandableInfoCard = memo(({ data, theme, styles, highContrast, categoryColor }) => {
+const ExpandableInfoCard = memo(({ data, theme, styles, highContrast, categoryColor, reduceMotion }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [contentHeight, setContentHeight] = useState(0);
-  const animValue = useRef(new Animated.Value(0)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
 
   const toggle = useCallback(() => {
     hapticFeedback('light');
     const nextState = !isOpen;
     setIsOpen(nextState);
 
+    if (reduceMotion) {
+      rotateAnim.setValue(nextState ? 1 : 0);
+      fadeAnim.setValue(nextState ? 1 : 0);
+      return;
+    }
+
     Animated.parallel([
-      Animated.timing(rotateAnim, { toValue: nextState ? 1 : 0, duration: 250, useNativeDriver: true }),
-      Animated.timing(animValue, { toValue: nextState ? 1 : 0, duration: 280, easing: Easing.out(Easing.cubic), useNativeDriver: false }),
+      Animated.timing(rotateAnim, {
+        toValue: nextState ? 1 : 0,
+        duration: 220,
+        useNativeDriver: true,
+      }),
+      Animated.timing(fadeAnim, {
+        toValue: nextState ? 1 : 0,
+        duration: 240,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
     ]).start();
-  }, [isOpen, animValue, rotateAnim]);
+  }, [isOpen, rotateAnim, fadeAnim, reduceMotion]);
 
   const rotate = rotateAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '180deg'] });
-  const maxHeight = animValue.interpolate({ inputRange: [0, 1], outputRange: [0, contentHeight || 2000] });
-  const opacity = animValue.interpolate({ inputRange: [0, 0.4, 1], outputRange: [0, 0.5, 1] });
-
   const accentColor = categoryColor || theme.primary;
 
   return (
@@ -371,7 +381,7 @@ const ExpandableInfoCard = memo(({ data, theme, styles, highContrast, categoryCo
           <Ionicons name={data.icon || 'book-outline'} size={20} color={accentColor} />
         </View>
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={[styles.infoCardTitle, highContrast && { fontWeight: '900' }]} numberOfLines={isOpen ? 2 : 1}>
+          <Text style={[styles.infoCardTitle, highContrast && { fontWeight: '900' }]} numberOfLines={isOpen ? undefined : 2}>
             {data.title}
           </Text>
           {!isOpen ? (
@@ -385,19 +395,14 @@ const ExpandableInfoCard = memo(({ data, theme, styles, highContrast, categoryCo
         </Animated.View>
       </TouchableOpacity>
 
-      <Animated.View style={{ maxHeight, opacity, overflow: 'hidden' }}>
-        <View
-          onLayout={(e) => {
-            const h = e.nativeEvent.layout.height;
-            if (h > 0 && h !== contentHeight) setContentHeight(h);
-          }}
-          style={styles.infoCardBody}
-        >
+      {isOpen ? (
+        <Animated.View style={[styles.infoCardBody, { opacity: fadeAnim }]}>
+          <View style={{ height: 1, backgroundColor: theme.border, opacity: 0.4, marginBottom: 12 }} />
           <Text style={[styles.infoCardText, highContrast && { color: theme.text, fontWeight: '600' }]}>
             {data.body}
           </Text>
-        </View>
-      </Animated.View>
+        </Animated.View>
+      ) : null}
     </View>
   );
 });
@@ -1015,7 +1020,7 @@ export default function ZekatScreen({ onBack }) {
   };
 
   /* ================================================================
-     HEADER — Her sekme için ikincil buton eklendi
+     HEADER — Her sekme için ikincil buton
      ================================================================ */
   const renderHeaderAction = () => {
     if (activeTab === 'calculate') {
@@ -1030,7 +1035,6 @@ export default function ZekatScreen({ onBack }) {
       );
     }
     if (activeTab === 'prices') {
-      // YENİ: Fiyatlar sekmesinde canlı fiyat yenile butonu
       return (
         <TouchableOpacity
           onPress={() => loadLivePrices(true)}
@@ -1778,6 +1782,7 @@ export default function ZekatScreen({ onBack }) {
                           styles={styles}
                           highContrast={highContrast}
                           categoryColor={catColor}
+                          reduceMotion={reduceMotion}
                         />
                       ))}
                     </View>
@@ -1931,7 +1936,6 @@ function createStyles(theme, fontScale = 1, largeTouchTargets = false, isSimple 
       paddingVertical: 10,
       padding: 0,
     },
-    /* YENİ: Badge içinde unit gösterimi */
     inputUnitBadge: {
       paddingHorizontal: 10,
       paddingVertical: 6,
