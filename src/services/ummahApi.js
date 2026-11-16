@@ -6,23 +6,29 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const API_BASE = 'https://api.aladhan.com/v1';
 const DEFAULT_METHOD = 13; // Diyanet İşleri Başkanlığı (Türkiye)
-const CACHE_VERSION = 'v4';
+const CACHE_VERSION = 'v5';
 const IN_MEMORY_TTL_MS = 5 * 60 * 1000; // aynı process içinde 5 dk tekrar sorma
 
-/* Hicri ay isimleri (Aladhan → Türkçe) */
+/* Hicri ay isimleri (Aladhan / diakritik varyasyonlar → Türkçe) */
 const HIJRI_MONTHS_TR = {
-  Muharram: 'Muharrem',
-  Safar: 'Safer',
-  'Rabi al-awwal': 'Rebiülevvel',
-  'Rabi al-thani': 'Rebiülahir',
-  'Jumada al-awwal': 'Cemaziyelevvel',
-  'Jumada al-thani': 'Cemaziyelahir',
-  Rajab: 'Recep',
-  Shaban: 'Şaban',
-  Ramadan: 'Ramazan',
-  Shawwal: 'Şevval',
-  'Dhu al-Qidah': 'Zilkade',
-  'Dhu al-Hijjah': 'Zilhicce',
+  muharram: 'Muharrem',
+  safar: 'Safer',
+  'rabi al-awwal': 'Rebiülevvel',
+  'rabi al-thani': 'Rebiülahir',
+  'rabi al-akhir': 'Rebiülahir',
+  'jumada al-awwal': 'Cemaziyelevvel',
+  'jumada al-ula': 'Cemaziyelevvel',
+  'jumada al-thani': 'Cemaziyelahir',
+  'jumada al-akhirah': 'Cemaziyelahir',
+  'jumada al-akhira': 'Cemaziyelahir',
+  rajab: 'Recep',
+  shaban: 'Şaban',
+  "sha'ban": 'Şaban',
+  ramadan: 'Ramazan',
+  shawwal: 'Şevval',
+  'dhu al-qidah': 'Zilkade',
+  "dhu al-qa'dah": 'Zilkade',
+  'dhu al-hijjah': 'Zilhicce',
 };
 
 /* ================================================================
@@ -76,14 +82,44 @@ const normalizeTimings = (timings) => {
 };
 
 /**
- * Aladhan hijri bilgisini Türkçe string'e dönüştürür.
- * Örn. { day: "12", month: { en: "Rabi al-awwal" }, year: "1446" }
- *   → "12 Rebiülevvel 1446"
+ * Diakritik işaretleri temizleyip ay anahtarını normalize eder.
+ * Örn. "Jumādá al-ākhirah" → "jumada al-akhirah"
+ */
+const cleanHijriKey = (value) =>
+  String(value ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[āàáâãä]/g, 'a')
+    .replace(/[ēèéêë]/g, 'e')
+    .replace(/[īìíîï]/g, 'i')
+    .replace(/[ōòóôõö]/g, 'o')
+    .replace(/[ūùúûü]/g, 'u')
+    .replace(/[’'`]/g, "'")
+    .replace(/\s+/g, ' ');
+
+/**
+ * Aladhan hijri bilgisini (veya İngilizce hijri metnini) Türkçe string'e dönüştürür.
+ * Örn. { day: "6", month: { en: "Jumādá al-ākhirah" }, year: "1448" } → "6 Cemaziyelahir 1448"
  */
 const normalizeHijri = (hijri) => {
   if (!hijri) return '';
+
+  if (typeof hijri === 'string') {
+    const cleaned = cleanHijriKey(hijri);
+    for (const [enKey, trName] of Object.entries(HIJRI_MONTHS_TR)) {
+      if (cleaned.includes(enKey)) {
+        const parts = hijri.trim().split(/\s+/);
+        if (parts.length >= 3) {
+          return `${parts[0]} ${trName} ${parts[parts.length - 1]}`;
+        }
+        return trName;
+      }
+    }
+    return hijri.trim();
+  }
+
   const monthEn = hijri.month?.en ?? '';
-  const monthTr = HIJRI_MONTHS_TR[monthEn] ?? monthEn;
+  const monthTr = HIJRI_MONTHS_TR[cleanHijriKey(monthEn)] ?? monthEn;
   return [hijri.day, monthTr, hijri.year].filter(Boolean).join(' ').trim();
 };
 
@@ -114,7 +150,12 @@ const memSet = (key, value) => {
 async function readCache(key) {
   try {
     const raw = await AsyncStorage.getItem(key);
-    return raw ? JSON.parse(raw) : null;
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed?.hijri) {
+      parsed.hijri = normalizeHijri(parsed.hijri);
+    }
+    return parsed;
   } catch {
     return null;
   }
@@ -140,7 +181,7 @@ async function fetchDay(latitude, longitude, date, method) {
     latitude: String(latitude),
     longitude: String(longitude),
     method: String(method),
-    school: '1', // Hanefi ikindi (Diyanet ile uyumlu)
+    school: '0', // Standart / Asr-ı Evvel (Diyanet İşleri Başkanlığı ile uyumlu)
   });
   const url = `${API_BASE}/timings/${toTimestamp(date)}?${params.toString()}`;
 
@@ -172,7 +213,11 @@ async function fetchDay(latitude, longitude, date, method) {
  * @param {number} minutes  +/− dakika
  */
 function applyTune(data, minutes) {
-  if (!minutes || !Number.isFinite(minutes) || minutes === 0) return data;
+  const normalizedData = data?.hijri
+    ? { ...data, hijri: normalizeHijri(data.hijri) }
+    : data;
+
+  if (!minutes || !Number.isFinite(minutes) || minutes === 0) return normalizedData;
 
   const shift = (timeStr) => {
     if (!timeStr) return timeStr;
@@ -186,14 +231,14 @@ function applyTune(data, minutes) {
   };
 
   return {
-    ...data,
+    ...normalizedData,
     times: {
-      imsak: shift(data.times.imsak),
-      sunrise: shift(data.times.sunrise),
-      dhuhr: shift(data.times.dhuhr),
-      asr: shift(data.times.asr),
-      maghrib: shift(data.times.maghrib),
-      isha: shift(data.times.isha),
+      imsak: shift(normalizedData.times.imsak),
+      sunrise: shift(normalizedData.times.sunrise),
+      dhuhr: shift(normalizedData.times.dhuhr),
+      asr: shift(normalizedData.times.asr),
+      maghrib: shift(normalizedData.times.maghrib),
+      isha: shift(normalizedData.times.isha),
     },
   };
 }
@@ -223,6 +268,7 @@ export async function fetchPrayerTimesFromAPI(latitude, longitude, options = {})
     if (memToday) {
       return {
         ...memToday,
+        hijri: normalizeHijri(memToday.hijri),
         tomorrowImsak: memTomorrow?.times?.imsak ?? null,
         source: 'live',
         fetchedAt: new Date().toISOString(),
