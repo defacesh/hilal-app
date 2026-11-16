@@ -113,6 +113,50 @@ function useReduceMotion() {
   return reduce;
 }
 
+function useNetworkOffline() {
+  const [isOffline, setIsOffline] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    let unsubscribe = null;
+
+    if (RNCNetInfo) {
+      if (typeof RNCNetInfo.fetch === 'function') {
+        RNCNetInfo.fetch()
+          .then((state) => {
+            if (!alive) return;
+            const offline = state?.isConnected === false || state?.isInternetReachable === false;
+            setIsOffline(offline);
+          })
+          .catch(() => {});
+      }
+      if (typeof RNCNetInfo.addEventListener === 'function') {
+        unsubscribe = RNCNetInfo.addEventListener((state) => {
+          if (!alive) return;
+          const offline = state?.isConnected === false || state?.isInternetReachable === false;
+          setIsOffline(offline);
+        });
+      }
+    } else if (IS_WEB && typeof window !== 'undefined') {
+      const updateWebStatus = () => setIsOffline(navigator.onLine === false);
+      updateWebStatus();
+      window.addEventListener('online', updateWebStatus);
+      window.addEventListener('offline', updateWebStatus);
+      unsubscribe = () => {
+        window.removeEventListener('online', updateWebStatus);
+        window.removeEventListener('offline', updateWebStatus);
+      };
+    }
+
+    return () => {
+      alive = false;
+      if (typeof unsubscribe === 'function') unsubscribe();
+    };
+  }, []);
+
+  return isOffline;
+}
+
 async function copyText(text) {
   try {
     if (Clipboard?.setStringAsync) {
@@ -164,8 +208,8 @@ const PRAYER_CONFIG = [
   { id: 'imsak',   name: 'İmsak',   icon: 'weather-night',         isSunrise: false },
   { id: 'sunrise', name: 'Güneş',   icon: 'weather-sunset-up',     isSunrise: true  },
   { id: 'dhuhr',   name: 'Öğle',    icon: 'weather-sunny',         isSunrise: false },
-  { id: 'asr',     name: 'İkindi', icon: 'weather-partly-cloudy', isSunrise: false },
-  { id: 'maghrib', name: 'Akşam',  icon: 'weather-sunset-down',   isSunrise: false },
+  { id: 'asr',     name: 'İkindi',  icon: 'weather-partly-cloudy', isSunrise: false },
+  { id: 'maghrib', name: 'Akşam',   icon: 'weather-sunset-down',   isSunrise: false },
   { id: 'isha',    name: 'Yatsı',   icon: 'weather-night',         isSunrise: false },
 ];
 
@@ -190,6 +234,25 @@ const SHADOW_LG = Platform.select({
 });
 
 const pad = (v) => String(v).padStart(2, '0');
+
+const toTurkishUpper = (str) =>
+  String(str ?? '').toLocaleUpperCase('tr-TR');
+
+const normalizeTurkishTitle = (str) =>
+  String(str ?? '')
+    .replace(/İKINDI/g, 'İKİNDİ')
+    .replace(/İkindi/g, 'İkindi')
+    .replace(/IKINDI/g, 'İKİNDİ')
+    .replace(/Imsak/g, 'İmsak')
+    .replace(/IMSAK/g, 'İMSAK')
+    .replace(/Ogle/g, 'Öğle')
+    .replace(/OGLE/g, 'ÖĞLE')
+    .replace(/Aksam/g, 'Akşam')
+    .replace(/AKSAM/g, 'AKŞAM')
+    .replace(/Yatsi/g, 'Yatsı')
+    .replace(/YATSI/g, 'YATSI')
+    .replace(/Gunes/g, 'Güneş')
+    .replace(/GUNES/g, 'GÜNEŞ');
 
 const getLocalDateString = (d = new Date()) =>
   [d.getFullYear(), pad(d.getMonth() + 1), pad(d.getDate())].join('-');
@@ -230,9 +293,6 @@ const formatMinutesShort = (minutes) => {
 
 const dateLabel = (d) =>
   d.toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long' });
-
-const getSourceLabel = (source) =>
-  ({ diyanet: 'Diyanet', aladhan: 'Yedek', cache: 'Diyanet' }[source] ?? 'Vakitler');
 
 const getGreeting = (now) => {
   const h = now.getHours();
@@ -805,11 +865,10 @@ const ProgressBar = memo(function ProgressBar({ from, to, now, theme }) {
 });
 
 /* ================================================================
-   BASİT MOD HERO KARTI — Saniye kutuları ve görsel karmaşa olmadan,
-   doğrudan sıradaki vakit adı, saati ve okunaklı kalan süre
+   BASİT MOD HERO KARTI
    ================================================================ */
 const SimpleHero = memo(function SimpleHero({
-  theme, fontScale, formattedDate, nextPrayer, now,
+  theme, fontScale, formattedDate, nextPrayer, now, isOffline,
   refreshing, onRefresh, onShare, onLongPress, highContrast,
 }) {
   const minutesLeft = nextPrayer?.date
@@ -840,19 +899,32 @@ const SimpleHero = memo(function SimpleHero({
       ]}
     >
       <View style={styles.simpleHeroTop}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 }}>
           <MaterialCommunityIcons
             name={nextPrayer?.icon || 'star-crescent'}
             size={18 * fontScale}
             color={theme.primary}
           />
-          <Text style={[styles.simpleHeroEyebrow, { color: theme.primary, fontSize: 12 * fontScale }]}>
+          <Text style={[styles.simpleHeroEyebrow, { color: theme.primary, fontSize: 12 * fontScale }]} numberOfLines={1}>
             {nextPrayer?.tomorrow ? 'YARIN SIRADAKİ NAMAZ' : 'SIRADAKİ NAMAZ'}
           </Text>
         </View>
-        <Text style={[styles.simpleHeroDate, { color: theme.textDim, fontSize: 11.5 * fontScale }]}>
-          {formattedDate}
-        </Text>
+        {isOffline ? (
+          <View style={[styles.offlinePill, {
+            backgroundColor: highContrast ? '#000000' : 'rgba(245, 158, 11, 0.14)',
+            borderColor: highContrast ? '#FFFF00' : 'rgba(245, 158, 11, 0.45)',
+            borderWidth: highContrast ? 2 : 1,
+          }]}>
+            <Ionicons name="cloud-offline-outline" size={12} color={highContrast ? '#FFFF00' : '#D97706'} />
+            <Text style={[styles.offlinePillText, { color: highContrast ? '#FFFF00' : '#D97706' }]}>
+              Çevrimdışı
+            </Text>
+          </View>
+        ) : (
+          <Text style={[styles.simpleHeroDate, { color: theme.textDim, fontSize: 11.5 * fontScale }]}>
+            {formattedDate}
+          </Text>
+        )}
       </View>
 
       <View style={styles.simpleHeroMain}>
@@ -928,7 +1000,7 @@ const SimpleHero = memo(function SimpleHero({
 });
 
 /* ================================================================
-   BASİT MOD VAKİT LİSTESİ — Alt alta, geniş puntolu vakit satırları
+   BASİT MOD VAKİT LİSTESİ
    ================================================================ */
 const SimplePrayerList = memo(function SimplePrayerList({
   prayers, tomorrowImsak, now, nextPrayer, theme, fontScale, highContrast,
@@ -1046,7 +1118,7 @@ const SimplePrayerList = memo(function SimplePrayerList({
 });
 
 const Hero = memo(function Hero({
-  theme, compact, fontScale, sourceLabel, formattedDate, hijri,
+  theme, compact, fontScale, isOffline, formattedDate,
   nextPrayer, previousPrayerDate, now, refreshing, showProgress,
   showCountdown, onRefresh, onShare, onLongPress, onLayout, highContrast,
 }) {
@@ -1068,7 +1140,7 @@ const Hero = memo(function Hero({
         containerStyle={{ borderRadius: RADIUS.hero }}
         style={[styles.hero, {
           backgroundColor: theme.surface,
-          borderColor: theme.border,
+          borderColor: isApproaching ? (highContrast ? '#FFFF00' : `${theme.primary}66`) : theme.border,
           borderWidth: highContrast ? 2 : 1,
           borderRadius: RADIUS.hero,
         }]}
@@ -1076,32 +1148,45 @@ const Hero = memo(function Hero({
         <IslamicDecor color={highContrast ? '#FFFF00' : theme.primary} />
         <HeroPulse color={highContrast ? '#FFFF00' : theme.primary} />
 
-        <View style={styles.heroTop}>
-          <View style={[styles.heroBadge, {
-            backgroundColor: highContrast ? '#000000' : `${theme.primary}18`,
-            borderColor: highContrast ? '#FFFF00' : `${theme.primary}40`,
-            borderWidth: highContrast ? 2 : 1,
-            borderRadius: 20,
+        <View style={[styles.heroTop, { justifyContent: isOffline ? 'space-between' : 'center' }]}>
+          {isOffline ? (
+            <View
+              accessibilityLabel="Çevrimdışı mod"
+              style={[styles.offlinePill, {
+                backgroundColor: highContrast ? '#000000' : 'rgba(245, 158, 11, 0.14)',
+                borderColor: highContrast ? '#FFFF00' : 'rgba(245, 158, 11, 0.45)',
+                borderWidth: highContrast ? 2 : 1,
+              }]}
+            >
+              <Ionicons name="cloud-offline-outline" size={12} color={highContrast ? '#FFFF00' : '#D97706'} />
+              <Text style={[styles.offlinePillText, {
+                color: highContrast ? '#FFFF00' : '#D97706',
+                fontWeight: '900',
+              }]} numberOfLines={1}>
+                Çevrimdışı
+              </Text>
+            </View>
+          ) : null}
+
+          <View style={[styles.heroDatePill, {
+            backgroundColor: highContrast ? '#000000' : (theme.surfaceElevated || theme.background),
+            borderColor: highContrast ? '#FFFFFF' : theme.border,
+            borderWidth: highContrast ? 1.5 : 1,
           }]}>
-            <View style={[styles.statusDot, { backgroundColor: theme.primary }]} />
-            <Text style={[styles.heroBadgeText, {
-              color: theme.primary, fontWeight: highContrast ? '900' : '800',
+            <Ionicons name="calendar-clear-outline" size={12} color={theme.primary} />
+            <Text style={[styles.heroDateBadge, {
+              color: theme.textDim, fontWeight: highContrast ? '800' : '700',
             }]} numberOfLines={1}>
-              {sourceLabel}
+              {formattedDate}
             </Text>
           </View>
-          <Text style={[styles.heroDateBadge, {
-            color: theme.textDim, fontWeight: highContrast ? '700' : '700',
-          }]} numberOfLines={1}>
-            {formattedDate}
-          </Text>
         </View>
 
         <View style={styles.heroCenter}>
           <View style={styles.heroEyebrowRow}>
             <Text style={[styles.heroEyebrow, {
               fontSize: 11 * fontScale, color: theme.primary,
-              fontWeight: highContrast ? '900' : '900',
+              fontWeight: '900',
             }]}>
               {nextPrayer
                 ? (nextPrayer.tomorrow ? 'YARIN SIRADAKİ' : 'SIRADAKİ NAMAZ')
@@ -1116,7 +1201,7 @@ const Hero = memo(function Hero({
                 <View style={[styles.approachingDot, { backgroundColor: theme.primary }]} />
                 <Text style={[styles.approachingText, {
                   color: theme.primary, fontSize: 9 * fontScale,
-                  fontWeight: highContrast ? '900' : '900',
+                  fontWeight: '900',
                 }]}>
                   YAKLAŞIYOR
                 </Text>
@@ -1187,11 +1272,11 @@ const Hero = memo(function Hero({
           borderTopWidth: highContrast ? 2 : StyleSheet.hairlineWidth,
         }]}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
-            <MaterialCommunityIcons name="moon-waning-crescent" size={14} color={theme.primary} />
-            <Text style={[styles.heroFooterHijri, {
-              color: theme.textDim, fontWeight: highContrast ? '700' : '700',
+            <Ionicons name="time-outline" size={14} color={theme.primary} />
+            <Text style={[styles.heroFooterRemaining, {
+              color: theme.textDim, fontWeight: highContrast ? '800' : '700',
             }]} numberOfLines={1}>
-              {hijri || 'Hicri tarih'}
+              {minutesUntilNext !== null ? `${formatMinutes(minutesUntilNext)} kaldı` : 'Vakitler güncel'}
             </Text>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -1654,7 +1739,7 @@ const CompactTimeline = memo(function CompactTimeline({ prayers, now, theme, fon
           color: theme.primary, fontSize: 13 * fontScale,
           fontWeight: '900',
         }]}>
-          {data.nextItem ? data.nextItem.name.toUpperCase('tr-TR') : '✓'}
+          {data.nextItem ? toTurkishUpper(data.nextItem.name) : '✓'}
         </Text>
       </View>
       <View style={[styles.compactTimelineBar, { backgroundColor: theme.border }]}>
@@ -1822,7 +1907,7 @@ const NameRow = memo(function NameRow({ item, gender, theme, fontScale, highCont
             <Text
               style={[styles.nameOrigin, {
                 color: theme.textMuted, fontSize: 10.5 * fontScale,
-                fontWeight: highContrast ? '700' : '700',
+                fontWeight: '700',
               }]}
               numberOfLines={1}
             >
@@ -2128,6 +2213,7 @@ export default function HomeScreen({
   const readingFontScale = useReadingFontScale();
   useGlobalHaptic();
   const readingMode = useReadingMode();
+  const isNetworkOffline = useNetworkOffline();
 
   const hasShownIntro = hasShownIntroProp ?? storeHasShownIntro;
   const [loading, setLoading] = useState(true);
@@ -2139,7 +2225,6 @@ export default function HomeScreen({
   const [hijriData, setHijriData] = useState(null);
   const [vakitContent, setVakitContent] = useState(null);
   const [notice, setNotice] = useState('');
-  const [dataSource, setDataSource] = useState(null);
   const [isTransitionReady, setIsTransitionReady] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
 
@@ -2276,7 +2361,6 @@ export default function HomeScreen({
     if (!result || !mounted.current) return;
     if (result.prayerData) {
       setPrayerData(result.prayerData);
-      setDataSource(result.source ?? result.prayerData.source ?? null);
 
       let isActuallyOffline = false;
       if (RNCNetInfo && typeof RNCNetInfo.fetch === 'function') {
@@ -2303,6 +2387,12 @@ export default function HomeScreen({
       setError(null);
     }
   }, [scheduleNotifications]);
+
+  useEffect(() => {
+    if (!isNetworkOffline && notice === 'Çevrimdışısınız. Kayıtlı vakitler gösteriliyor.') {
+      setNotice('');
+    }
+  }, [isNetworkOffline, notice]);
 
   const introRef = useRef({ shown: hasShownIntro, mark: markIntroShown });
   introRef.current = { shown: hasShownIntro, mark: markIntroShown };
@@ -2331,7 +2421,6 @@ export default function HomeScreen({
       if (!isCurrent() || !partial) return;
       if (partial.prayerData) {
         setPrayerData(partial.prayerData);
-        setDataSource(partial.source ?? 'cache');
         setLoading(false);
         setLoadingSubtitle('İçerikler hazırlanıyor…');
       }
@@ -2417,6 +2506,11 @@ export default function HomeScreen({
   const activePrayerId = useMemo(() => getActiveVakitSlot(now), [now]);
   const vakitSeed = useMemo(() => Math.floor(now.getTime() / (60 * 60 * 1000)), [now]);
 
+  const vakitSectionTitle = useMemo(
+    () => normalizeTurkishTitle(getVakitBaslik(activePrayerId)),
+    [activePrayerId],
+  );
+
   useEffect(() => {
     const currentNextId = nextPrayer?.id ?? null;
     if (lastWidgetPrayerId.current !== null && lastWidgetPrayerId.current !== currentNextId) {
@@ -2431,7 +2525,6 @@ export default function HomeScreen({
   }, [nextPrayer?.id]);
 
   const hijri = hijriData?.formatted || prayerData?.hijri || '';
-  const sourceLabel = getSourceLabel(prayerData?.source === 'cache' ? 'cache' : dataSource);
   const formattedDate = useMemo(() => dateLabel(now), [now]);
   const dailyFemale = useMemo(() => islamicNames.find((i) => i.gender === 'Kız') || null, [islamicNames]);
   const dailyMale = useMemo(() => islamicNames.find((i) => i.gender === 'Erkek') || null, [islamicNames]);
@@ -2492,7 +2585,6 @@ export default function HomeScreen({
   const greeting = getGreeting(now);
   const notificationsOn = widgetsConfig.notificationsEnabled;
 
-  // ✅ Basit modda da vaktin ayet, dua ve esma içerikleri açık kalır
   const showContentSection =
     homePrefs.showManeviContent !== false && (
       (widgetsConfig.showVerseCard ?? true) ||
@@ -2505,7 +2597,7 @@ export default function HomeScreen({
     if (!showContentSection) return null;
     return (
       <Section
-        title={getVakitBaslik(activePrayerId)}
+        title={vakitSectionTitle}
         subtitle={contentShowArabic ? 'Arapça + Türkçe' : 'Türkçe'}
         theme={theme}
         fontScale={fontScale}
@@ -2607,7 +2699,7 @@ export default function HomeScreen({
           }
         >
           {/* ================================================================
-              BASİT MOD GÖRÜNÜMÜ (Sade Tasarım + Tüm İçerikler Korunur)
+              BASİT MOD GÖRÜNÜMÜ
               ================================================================ */}
           {isSimpleMode ? (
             <View style={[styles.page, pageMaxWidth ? { maxWidth: pageMaxWidth } : null]}>
@@ -2672,13 +2764,13 @@ export default function HomeScreen({
                 highContrast={highContrast}
               />
 
-              {/* Sadeleştirilmiş Sıradaki Vakit Kartı */}
               <SimpleHero
                 theme={theme}
                 fontScale={fontScale}
                 formattedDate={formattedDate}
                 nextPrayer={nextPrayer}
                 now={now}
+                isOffline={isNetworkOffline}
                 refreshing={refreshing}
                 onRefresh={handleRefresh}
                 onShare={handleShare}
@@ -2686,7 +2778,6 @@ export default function HomeScreen({
                 highContrast={highContrast}
               />
 
-              {/* Alt Alta Tek Bakışta Vakit Listesi */}
               <SimplePrayerList
                 prayers={prayers}
                 tomorrowImsak={prayerData?.tomorrowImsak}
@@ -2697,7 +2788,6 @@ export default function HomeScreen({
                 highContrast={highContrast}
               />
 
-              {/* Hızlı Erişimler */}
               <Section
                 title="Hızlı Erişim"
                 theme={theme}
@@ -2712,7 +2802,6 @@ export default function HomeScreen({
                 />
               </Section>
 
-              {/* Günün İsimleri */}
               {islamicNames.length > 0 && homePrefs.showDailyNames !== false ? (
                 <Section
                   title="Günün İsimleri"
@@ -2732,7 +2821,6 @@ export default function HomeScreen({
                 </Section>
               ) : null}
 
-              {/* Vaktin Ayet, Dua ve Esma İçerikleri */}
               {renderManeviSection()}
             </View>
           ) : (
@@ -2756,7 +2844,7 @@ export default function HomeScreen({
                         }]}
                         numberOfLines={1}
                       >
-                        {greeting},
+                        {greeting}
                       </Text>
 
                       <TouchableOpacity
@@ -2846,9 +2934,8 @@ export default function HomeScreen({
                       theme={theme}
                       compact={compact}
                       fontScale={fontScale}
-                      sourceLabel={sourceLabel}
+                      isOffline={isNetworkOffline}
                       formattedDate={formattedDate}
-                      hijri={hijri}
                       nextPrayer={nextPrayer}
                       previousPrayerDate={previousPrayerDate}
                       now={now}
@@ -3072,7 +3159,20 @@ const styles = StyleSheet.create({
   },
   kerahatProgressFill: { height: '100%', borderRadius: 2 },
 
-  /* ---------------- BASİT MOD STİLLERİ ---------------- */
+  offlinePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+  },
+  offlinePillText: {
+    fontSize: 10.5,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+
   simpleHero: {
     borderRadius: RADIUS.xxl,
     padding: 20,
@@ -3190,26 +3290,30 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
 
-  /* ---------------- STANDART MOD STİLLERİ ---------------- */
   heroShadowContainer: {},
   hero: {
     padding: 20,
     overflow: 'hidden', position: 'relative',
   },
   heroTop: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    alignItems: 'center', gap: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
-  heroBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 10, paddingVertical: 5,
-    maxWidth: '55%', borderWidth: 1,
+  heroDatePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 11,
+    paddingVertical: 5,
+    borderRadius: 20,
+    flexShrink: 1,
   },
-  statusDot: { width: 6, height: 6, borderRadius: 3 },
-  heroBadgeText: { fontSize: 10.5, fontWeight: '800', letterSpacing: 0.4 },
   heroDateBadge: {
-    fontSize: 11, fontWeight: '700',
-    textTransform: 'capitalize', flexShrink: 1,
+    fontSize: 11.5,
+    fontWeight: '700',
+    textTransform: 'capitalize',
+    flexShrink: 1,
   },
   heroCenter: { alignItems: 'center', marginTop: 18 },
   heroEyebrowRow: {
@@ -3245,7 +3349,7 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth, marginTop: 16, paddingTop: 14,
     gap: 8,
   },
-  heroFooterHijri: { fontSize: 12, fontWeight: '700' },
+  heroFooterRemaining: { fontSize: 12, fontWeight: '700' },
   heroIconBtn: {
     width: 32, height: 32, borderRadius: RADIUS.sm, borderWidth: 1,
     alignItems: 'center', justifyContent: 'center',

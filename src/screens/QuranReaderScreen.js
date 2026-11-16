@@ -62,9 +62,9 @@ const DISPLAY_MODES = [
 ];
 
 const LAYOUT_MODES = [
-  { id: 'scroll',      label: 'Liste',      icon: 'swap-vertical' },
-  { id: 'page',        label: 'Sayfa',      icon: 'book-outline' },
-  { id: 'single_ayah', label: 'Ayet Ayet',  icon: 'document-text-outline' },
+  { id: 'scroll',      label: 'Liste',  icon: 'list-outline' },
+  { id: 'page',        label: 'Sayfa',  icon: 'book-outline' },
+  { id: 'single_ayah', label: 'Ayet',   icon: 'document-text-outline' },
 ];
 
 const FONT_SIZES = [
@@ -283,7 +283,14 @@ const MealOnlyVerse = memo(function MealOnlyVerse({
       </Text>
     </TouchableOpacity>
   );
-});
+}, (prev, next) => (
+  prev.verse.id === next.verse.id &&
+  prev.fontScale === next.fontScale &&
+  prev.isLast === next.isLast &&
+  prev.surahNumber === next.surahNumber &&
+  prev.highContrast === next.highContrast &&
+  prev.theme === next.theme
+));
 
 /* ================================================================
    Klasik Ayet kartı
@@ -417,7 +424,17 @@ const VerseCard = memo(function VerseCard({
       )}
     </TouchableOpacity>
   );
-});
+}, (prev, next) => (
+  prev.verse.id === next.verse.id &&
+  prev.displayMode === next.displayMode &&
+  prev.fontScale === next.fontScale &&
+  prev.arabicSize === next.arabicSize &&
+  prev.activeWordId === next.activeWordId &&
+  prev.isLast === next.isLast &&
+  prev.surahNumber === next.surahNumber &&
+  prev.highContrast === next.highContrast &&
+  prev.theme === next.theme
+));
 
 /* ================================================================
    Yazı Boyutu Bottom Sheet
@@ -460,7 +477,6 @@ const FontSizeSheet = memo(function FontSizeSheet({
         >
           <View style={[styles.modalHandle, { backgroundColor: highContrast ? '#FFFFFF' : theme.border }]} />
 
-          {/* Header */}
           <View style={styles.modalHeader}>
             <View style={{ flex: 1 }}>
               <Text
@@ -482,7 +498,6 @@ const FontSizeSheet = memo(function FontSizeSheet({
             </TouchableOpacity>
           </View>
 
-          {/* Canlı preview */}
           <View
             style={[
               styles.fontPreviewBox,
@@ -507,7 +522,6 @@ const FontSizeSheet = memo(function FontSizeSheet({
             </Text>
           </View>
 
-          {/* 5 seçenek */}
           <View style={{ gap: 6, marginBottom: 12 }}>
             {FONT_SIZES.map((f) => {
               const isActive = f.id === currentId;
@@ -704,23 +718,23 @@ const VerseDetailModal = memo(function VerseDetailModal({
                     borderColor: highContrast ? '#FFFFFF' : theme.border,
                     borderWidth: highContrast ? 2 : 1,
                   }]}
-                    hitSlop={6}
-                    accessibilityLabel="Paylaş"
-                  >
-                    <Ionicons name="share-outline" size={18} color={theme.text} />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => { haptic(); onClose?.(); }}
-                    style={[styles.detailIconBtn, {
-                      backgroundColor: highContrast ? '#121212' : theme.surface,
-                      borderColor: highContrast ? '#FFFFFF' : theme.border,
-                      borderWidth: highContrast ? 2 : 1,
-                    }]}
-                    hitSlop={6}
-                    accessibilityLabel="Kapat"
-                  >
-                    <Ionicons name="close" size={20} color={theme.text} />
-                  </TouchableOpacity>
+                  hitSlop={6}
+                  accessibilityLabel="Paylaş"
+                >
+                  <Ionicons name="share-outline" size={18} color={theme.text} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => { haptic(); onClose?.(); }}
+                  style={[styles.detailIconBtn, {
+                    backgroundColor: highContrast ? '#121212' : theme.surface,
+                    borderColor: highContrast ? '#FFFFFF' : theme.border,
+                    borderWidth: highContrast ? 2 : 1,
+                  }]}
+                  hitSlop={6}
+                  accessibilityLabel="Kapat"
+                >
+                  <Ionicons name="close" size={20} color={theme.text} />
+                </TouchableOpacity>
               </View>
             </View>
 
@@ -1014,7 +1028,7 @@ const PageMushafView = memo(function PageMushafView({
 });
 
 /* ================================================================
-   YENİ: Tek Ayet Okuma Görünümü
+   Tek Ayet Okuma Görünümü
    ================================================================ */
 const SingleAyahView = memo(function SingleAyahView({
   verse, theme, displayMode, fontScale, arabicSize,
@@ -1059,7 +1073,7 @@ const SingleAyahView = memo(function SingleAyahView({
 });
 
 /* ================================================================
-   YENİ: Tek Ayet Alt Navigasyon Barı
+   Tek Ayet Alt Navigasyon Barı
    ================================================================ */
 const SingleAyahNavigation = memo(function SingleAyahNavigation({
   currentAyahIndex, totalAyahs, theme, insets, onPrev, onNext, isRTL, highContrast,
@@ -1342,7 +1356,7 @@ const SourceMiniChip = memo(function SourceMiniChip({ sourceInfo, theme, highCon
     return (
       <View style={[styles.miniChip, { backgroundColor: '#1E1E1E', borderColor: '#FFFFFF', borderWidth: 1 }]}>
         <View style={[styles.miniChipDot, { backgroundColor: '#FFFF00' }]} />
-        <Text style={[styles.miniChipText, { color: '#FFFF00', fontWeight: '900' }]}>OFFLINE</Text>
+        <Text style={[styles.miniChipText, { color: '#FFFF00', fontWeight: '900' }]}>ÇEVRİMDIŞI</Text>
       </View>
     );
   }
@@ -1350,7 +1364,7 @@ const SourceMiniChip = memo(function SourceMiniChip({ sourceInfo, theme, highCon
     return (
       <View style={[styles.miniChip, { backgroundColor: 'rgba(34,197,94,0.15)' }]}>
         <View style={[styles.miniChipDot, { backgroundColor: '#16A34A' }]} />
-        <Text style={[styles.miniChipText, { color: '#16A34A' }]}>OFFLINE</Text>
+        <Text style={[styles.miniChipText, { color: '#16A34A' }]}>ÇEVRİMDIŞI</Text>
       </View>
     );
   }
@@ -1381,7 +1395,7 @@ const SourceMiniChip = memo(function SourceMiniChip({ sourceInfo, theme, highCon
   return (
     <View style={[styles.miniChip, { backgroundColor: 'rgba(59,130,246,0.15)' }]}>
       <View style={[styles.miniChipDot, { backgroundColor: '#3B82F6' }]} />
-      <Text style={[styles.miniChipText, { color: '#3B82F6' }]}>ONLINE</Text>
+      <Text style={[styles.miniChipText, { color: '#3B82F6' }]}>İNTERNETLİ</Text>
     </View>
   );
 });
@@ -1796,6 +1810,7 @@ const AyahJumpModal = memo(function AyahJumpModal({
 }) {
   const [surahInput, setSurahInput] = useState(String(currentSurah));
   const [ayahInput, setAyahInput] = useState('');
+  const ayahInputRef = useRef(null);
 
   useEffect(() => {
     if (visible) {
@@ -1805,14 +1820,33 @@ const AyahJumpModal = memo(function AyahJumpModal({
   }, [visible, currentSurah, currentAyah]);
 
   const targetSurahInfo = useMemo(() => {
-    const n = Number(surahInput);
-    if (!Number.isFinite(n) || n < 1 || n > 114) return null;
+    const clean = String(surahInput).replace(/[^0-9]/g, '');
+    const n = Number(clean);
+    if (!clean || !Number.isFinite(n) || n < 1 || n > 114) return null;
     return getSurahByNumber(n);
   }, [surahInput]);
 
+  const handleSurahChange = (text) => {
+    const clean = text.replace(/[^0-9]/g, '');
+    setSurahInput(clean);
+    const num = Number(clean);
+    if (clean.length === 3 || (num >= 12 && num <= 114 && clean.length >= 2)) {
+      const info = getSurahByNumber(num);
+      if (info && Number(ayahInput) > info.ayahCount) {
+        setAyahInput('1');
+      }
+      ayahInputRef.current?.focus?.();
+    }
+  };
+
+  const handleAyahChange = (text) => {
+    const clean = text.replace(/[^0-9]/g, '');
+    setAyahInput(clean);
+  };
+
   const handleJump = () => {
-    const sNum = Number(surahInput);
-    const aNum = Number(ayahInput);
+    const sNum = Number(String(surahInput).trim());
+    const aNum = Number(String(ayahInput).trim() || '1');
 
     if (!Number.isFinite(sNum) || sNum < 1 || sNum > 114) {
       haptic('heavy');
@@ -1829,9 +1863,9 @@ const AyahJumpModal = memo(function AyahJumpModal({
       return;
     }
 
-    haptic();
-    onJump(sNum, aNum);
+    haptic('medium');
     onClose();
+    onJump(sNum, aNum);
   };
 
   return (
@@ -1845,7 +1879,7 @@ const AyahJumpModal = memo(function AyahJumpModal({
         <View style={[styles.jumpCard, {
           backgroundColor: highContrast ? '#121212' : theme.surface, borderColor: highContrast ? '#FFFFFF' : theme.border, borderWidth: highContrast ? 2 : 1,
         }]}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
             <Ionicons name="compass-outline" size={20} color={theme.primary} style={{ marginRight: 8 }} />
             <Text style={[styles.jumpTitle, { color: theme.text, flex: 1, fontWeight: highContrast ? '900' : '900' }]}>
               Sure / Ayet Bul
@@ -1859,7 +1893,7 @@ const AyahJumpModal = memo(function AyahJumpModal({
             Gitmek istediğiniz sure numarasını ve ayeti yazın.
           </Text>
 
-          <View style={{ flexDirection: 'row', gap: 10, marginBottom: 14 }}>
+          <View style={{ flexDirection: 'row', gap: 10, marginBottom: 12 }}>
             <View style={{ flex: 1 }}>
               <Text style={{ color: highContrast ? '#FFFFFF' : theme.textMuted, fontSize: 11, fontWeight: highContrast ? '900' : '700', marginBottom: 4 }}>
                 SURE (1-114)
@@ -1875,9 +1909,11 @@ const AyahJumpModal = memo(function AyahJumpModal({
                 placeholder="1-114"
                 placeholderTextColor={highContrast ? '#A0A0A0' : theme.textMuted}
                 value={surahInput}
-                onChangeText={setSurahInput}
+                onChangeText={handleSurahChange}
+                selectTextOnFocus
                 maxLength={3}
                 returnKeyType="next"
+                onSubmitEditing={() => ayahInputRef.current?.focus?.()}
               />
             </View>
 
@@ -1886,6 +1922,7 @@ const AyahJumpModal = memo(function AyahJumpModal({
                 AYET {targetSurahInfo ? `(1-${targetSurahInfo.ayahCount})` : ''}
               </Text>
               <TextInput
+                ref={ayahInputRef}
                 style={[styles.jumpInput, {
                   color: theme.text, borderColor: highContrast ? '#FFFFFF' : theme.border,
                   backgroundColor: highContrast ? '#000000' : theme.background,
@@ -1896,7 +1933,8 @@ const AyahJumpModal = memo(function AyahJumpModal({
                 placeholder="Ayet No"
                 placeholderTextColor={highContrast ? '#A0A0A0' : theme.textMuted}
                 value={ayahInput}
-                onChangeText={setAyahInput}
+                onChangeText={handleAyahChange}
+                selectTextOnFocus
                 maxLength={3}
                 returnKeyType="go"
                 onSubmitEditing={handleJump}
@@ -1904,15 +1942,35 @@ const AyahJumpModal = memo(function AyahJumpModal({
             </View>
           </View>
 
-          {targetSurahInfo && (
+          {targetSurahInfo ? (
             <View style={[styles.jumpTargetPreview, { backgroundColor: highContrast ? '#000000' : theme.background, borderColor: highContrast ? '#FFFFFF' : theme.border, borderWidth: highContrast ? 2 : 1 }]}>
               <Text style={{ color: theme.primary, fontSize: 12, fontWeight: highContrast ? '900' : '800' }}>
-                Hedef: {targetSurahInfo.number}. {targetSurahInfo.name} ({targetSurahInfo.ayahCount} Ayet)
+                {targetSurahInfo.number}. {targetSurahInfo.name} ({targetSurahInfo.ayahCount} Ayet)
+              </Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+                <TouchableOpacity
+                  onPress={() => { haptic(); setAyahInput('1'); }}
+                  style={[styles.jumpEdgeChip, { borderColor: highContrast ? '#FFFFFF' : theme.border }]}
+                >
+                  <Text style={{ color: theme.textDim, fontSize: 10, fontWeight: '700' }}>İlk Ayet (1)</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => { haptic(); setAyahInput(String(targetSurahInfo.ayahCount)); }}
+                  style={[styles.jumpEdgeChip, { borderColor: highContrast ? '#FFFFFF' : theme.border }]}
+                >
+                  <Text style={{ color: theme.textDim, fontSize: 10, fontWeight: '700' }}>Son Ayet ({targetSurahInfo.ayahCount})</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <View style={[styles.jumpTargetPreview, { backgroundColor: highContrast ? '#000000' : theme.background, borderColor: '#EF4444', borderWidth: 1 }]}>
+              <Text style={{ color: '#EF4444', fontSize: 11, fontWeight: '700' }}>
+                1 ile 114 arasında geçerli bir sure numarası girin
               </Text>
             </View>
           )}
 
-          <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
+          <View style={{ flexDirection: 'row', gap: 8, marginTop: 2 }}>
             <TouchableOpacity
               onPress={onClose}
               style={[styles.jumpBtn, { borderColor: highContrast ? '#FFFFFF' : theme.border, borderWidth: highContrast ? 2 : 1, flex: 1, backgroundColor: highContrast ? '#000000' : 'transparent' }]}
@@ -1939,7 +1997,7 @@ const AyahJumpModal = memo(function AyahJumpModal({
 /* ================================================================
    Ana ekran
    ================================================================ */
-export default function QuranReaderScreen({ onBack, initialSurah = 1 }) {
+export default function QuranReaderScreen({ onBack, initialSurah = 1, initialAyah = 1 }) {
   const getTheme = useAppStore((s) => s.getTheme);
   const quranSource = useAppStore((s) => s.quranSource ?? 'offline');
   const diyanetApiKey = useAppStore((s) => s.diyanetKuranApiKey) ?? '';
@@ -1981,9 +2039,12 @@ export default function QuranReaderScreen({ onBack, initialSurah = 1 }) {
   const [layoutMode, setLayoutMode] = useState('scroll'); // 'scroll' | 'page' | 'single_ayah'
   const [fontSizeId, setFontSizeId] = useState('normal');
   const [fontSizeSheetVisible, setFontSizeSheetVisible] = useState(false);
-  const [currentAyahVisible, setCurrentAyahVisible] = useState(1);
+  const [currentAyahVisible, setCurrentAyahVisible] = useState(initialAyah);
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
-  const [singleAyahIndex, setSingleAyahIndex] = useState(0);
+  const [singleAyahIndex, setSingleAyahIndex] = useState(Math.max(0, initialAyah - 1));
+  const [listInitialRenderCount, setListInitialRenderCount] = useState(
+    initialAyah > 1 ? initialAyah + 3 : 10,
+  );
 
   const [pinchLiveScale, setPinchLiveScale] = useState(null);
   const pinchBaseScaleRef = useRef(1);
@@ -1991,6 +2052,10 @@ export default function QuranReaderScreen({ onBack, initialSurah = 1 }) {
 
   const flatListRef = useRef(null);
   const abortRef = useRef(null);
+  const pendingTargetAyahRef = useRef(initialAyah > 1 ? initialAyah : null);
+  const isJumpingRef = useRef(false);
+  const jumpUnlockTimerRef = useRef(null);
+  const scrollRetryCountRef = useRef(0);
 
   const surahInfo = useMemo(() => getSurahByNumber(surahNumber), [surahNumber]);
 
@@ -2161,17 +2226,73 @@ export default function QuranReaderScreen({ onBack, initialSurah = 1 }) {
     [sourceInfo.wordByWord, sourceInfo.latin],
   );
 
+  /* ---------------- Yardımcı: Güvenli Ayete Konumlanma ---------------- */
+  const lockJumpingTemporarily = useCallback((durationMs = 1500) => {
+    isJumpingRef.current = true;
+    if (jumpUnlockTimerRef.current) clearTimeout(jumpUnlockTimerRef.current);
+    jumpUnlockTimerRef.current = setTimeout(() => {
+      isJumpingRef.current = false;
+    }, durationMs);
+  }, []);
+
+  const navigateToAyahInLoadedVerses = useCallback((
+    targetSurah,
+    targetAyah,
+    loadedVerses,
+    loadedPagesData,
+    activeLayout,
+  ) => {
+    if (!Array.isArray(loadedVerses) || loadedVerses.length === 0) return;
+
+    const clampedAyah = Math.max(1, Math.min(loadedVerses.length, targetAyah));
+    const idx = loadedVerses.findIndex((v) => v.number === clampedAyah);
+    const safeIdx = idx >= 0 ? idx : Math.max(0, clampedAyah - 1);
+
+    lockJumpingTemporarily(1600);
+    scrollRetryCountRef.current = 0;
+    setCurrentAyahVisible(clampedAyah);
+    setSingleAyahIndex(safeIdx);
+    saveLastPosition(targetSurah, clampedAyah);
+
+    if (activeLayout === 'page') {
+      const pageIdx = loadedPagesData.findIndex((p) =>
+        p.verses.some((v) => v.number === clampedAyah),
+      );
+      if (pageIdx >= 0) setCurrentPageIndex(pageIdx);
+      return;
+    }
+
+    if (activeLayout === 'single_ayah') {
+      return;
+    }
+
+    if (clampedAyah <= 1) {
+      flatListRef.current?.scrollToOffset?.({ offset: 0, animated: false });
+      return;
+    }
+
+    flatListRef.current?.scrollToIndex?.({
+      index: safeIdx,
+      animated: false,
+      viewPosition: 0.05,
+    });
+  }, [lockJumpingTemporarily]);
+
   /* ---------------- Yükleme ---------------- */
   const load = useCallback(async (surah, targetAyah = 1) => {
     try { abortRef.current?.abort?.(); } catch {}
     const controller = new AbortController();
     abortRef.current = controller;
 
+    pendingTargetAyahRef.current = targetAyah > 1 ? targetAyah : null;
+    setListInitialRenderCount(targetAyah > 1 ? targetAyah + 3 : 10);
+    lockJumpingTemporarily(1800);
     setLoading(true);
     setError(null);
     setActiveWord(null);
     setCurrentPageIndex(0);
-    setSingleAyahIndex(0);
+    setSingleAyahIndex(Math.max(0, targetAyah - 1));
+    setCurrentAyahVisible(targetAyah);
 
     if (sourceInfo.requiresApiKey && !diyanetApiKey) {
       setLoading(false);
@@ -2189,36 +2310,17 @@ export default function QuranReaderScreen({ onBack, initialSurah = 1 }) {
         apiKey: diyanetApiKey,
       });
       if (controller.signal.aborted) return;
-      setVerses(data);
-      setCurrentAyahVisible(targetAyah);
 
-      const targetIndex = data.findIndex((v) => v.number === targetAyah);
+      const resolvedTarget = pendingTargetAyahRef.current ?? targetAyah ?? 1;
+      const targetIndex = data.findIndex((v) => v.number === resolvedTarget);
       if (targetIndex >= 0) {
         setSingleAyahIndex(targetIndex);
       }
 
-      saveLastPosition(surah, targetAyah);
+      setVerses(data);
+      setCurrentAyahVisible(resolvedTarget);
+      saveLastPosition(surah, resolvedTarget);
       addRecentSurah(surah).catch(() => {});
-      
-      requestAnimationFrame(() => {
-        if (targetAyah > 1) {
-          if (layoutMode === 'page') {
-            const pageIdx = pagesData.findIndex((p) =>
-              p.verses.some((v) => v.number === targetAyah),
-            );
-            if (pageIdx >= 0) setCurrentPageIndex(pageIdx);
-          } else if (layoutMode === 'scroll') {
-            const idx = data.findIndex((v) => v.number === targetAyah);
-            if (idx >= 0) {
-              flatListRef.current?.scrollToIndex?.({
-                index: idx, animated: true, viewPosition: 0.05,
-              });
-            }
-          }
-        } else {
-          flatListRef.current?.scrollToOffset?.({ offset: 0, animated: false });
-        }
-      });
     } catch (e) {
       if (controller.signal.aborted) return;
       setError(e?.message || 'Kur’an verisi yüklenemedi.');
@@ -2226,9 +2328,39 @@ export default function QuranReaderScreen({ onBack, initialSurah = 1 }) {
     } finally {
       if (!controller.signal.aborted) setLoading(false);
     }
-  }, [quranSource, sourceInfo.requiresApiKey, diyanetApiKey, layoutMode, pagesData]);
+  }, [quranSource, sourceInfo.requiresApiKey, diyanetApiKey, lockJumpingTemporarily]);
 
-  useEffect(() => { load(surahNumber, 1); }, [surahNumber]);
+  // Sure değiştiğinde veriyi yükle
+  useEffect(() => {
+    const target = pendingTargetAyahRef.current ?? 1;
+    load(surahNumber, target);
+  }, [surahNumber, load]);
+
+  // Veri yüklendikten sonra tek merkezli güvenli konumlanma
+  useEffect(() => {
+    if (loading || verses.length === 0 || pendingTargetAyahRef.current === null) return;
+
+    const targetAyah = pendingTargetAyahRef.current;
+    let timerId = null;
+
+    const rafId = requestAnimationFrame(() => {
+      timerId = setTimeout(() => {
+        pendingTargetAyahRef.current = null;
+        navigateToAyahInLoadedVerses(
+          surahNumber,
+          targetAyah,
+          verses,
+          pagesData,
+          layoutMode,
+        );
+      }, 140);
+    });
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      if (timerId) clearTimeout(timerId);
+    };
+  }, [loading, verses, layoutMode, pagesData, surahNumber, navigateToAyahInLoadedVerses]);
 
   useEffect(() => {
     const isSupported = availableModes.some((m) => m.id === displayMode);
@@ -2242,14 +2374,23 @@ export default function QuranReaderScreen({ onBack, initialSurah = 1 }) {
   }, [currentPageIndex, layoutMode]);
 
   useEffect(() => {
-    return () => { try { abortRef.current?.abort?.(); } catch {} };
+    return () => {
+      try { abortRef.current?.abort?.(); } catch {}
+      if (jumpUnlockTimerRef.current) clearTimeout(jumpUnlockTimerRef.current);
+    };
   }, []);
 
   /* ---------------- Handlers ---------------- */
   const handleSelectSurah = useCallback((n) => {
     setPickerVisible(false);
-    if (n !== surahNumber) setSurahNumber(n);
-  }, [surahNumber]);
+    if (n !== surahNumber) {
+      pendingTargetAyahRef.current = null;
+      setListInitialRenderCount(10);
+      setSurahNumber(n);
+    } else {
+      navigateToAyahInLoadedVerses(n, 1, verses, pagesData, layoutMode);
+    }
+  }, [surahNumber, verses, pagesData, layoutMode, navigateToAyahInLoadedVerses]);
 
   const handleWordPress = useCallback((word, verse) => {
     haptic();
@@ -2269,6 +2410,7 @@ export default function QuranReaderScreen({ onBack, initialSurah = 1 }) {
   useEffect(() => { surahNumberRef.current = surahNumber; }, [surahNumber]);
 
   const handleViewableItemsChanged = useRef(({ viewableItems }) => {
+    if (isJumpingRef.current) return;
     if (!viewableItems || viewableItems.length === 0) return;
     const first = viewableItems[0]?.item;
     if (first?.number) {
@@ -2282,40 +2424,43 @@ export default function QuranReaderScreen({ onBack, initialSurah = 1 }) {
   const handleJumpToSurahAndAyah = useCallback((targetSurah, targetAyah) => {
     setActiveWord(null);
     if (targetSurah !== surahNumber) {
+      pendingTargetAyahRef.current = targetAyah;
+      setListInitialRenderCount(targetAyah > 1 ? targetAyah + 3 : 10);
+      lockJumpingTemporarily(2000);
       setSurahNumber(targetSurah);
-      load(targetSurah, targetAyah);
     } else {
-      const idx = verses.findIndex((v) => v.number === targetAyah);
-      if (layoutMode === 'page') {
-        const pageIdx = pagesData.findIndex((p) =>
-          p.verses.some((v) => v.number === targetAyah),
-        );
-        if (pageIdx >= 0) setCurrentPageIndex(pageIdx);
-      } else if (layoutMode === 'single_ayah') {
-        if (idx >= 0) {
-          setSingleAyahIndex(idx);
-          setCurrentAyahVisible(targetAyah);
-          saveLastPosition(targetSurah, targetAyah);
-        }
-      } else {
-        if (idx >= 0) {
-          flatListRef.current?.scrollToIndex?.({
-            index: idx, animated: true, viewPosition: 0.05,
-          });
-        }
-      }
+      pendingTargetAyahRef.current = null;
+      navigateToAyahInLoadedVerses(
+        targetSurah,
+        targetAyah,
+        verses,
+        pagesData,
+        layoutMode,
+      );
     }
-  }, [surahNumber, verses, layoutMode, pagesData, load]);
+  }, [surahNumber, verses, layoutMode, pagesData, lockJumpingTemporarily, navigateToAyahInLoadedVerses]);
 
   const handleScrollToIndexFailed = useCallback((info) => {
-    const offset = info.averageItemLength * info.index;
-    flatListRef.current?.scrollToOffset?.({ offset, animated: true });
+    const attempt = scrollRetryCountRef.current;
+    if (attempt >= 8) {
+      isJumpingRef.current = false;
+      return;
+    }
+    scrollRetryCountRef.current = attempt + 1;
+    lockJumpingTemporarily(1600);
+
+    const avgLen = info.averageItemLength > 0 ? info.averageItemLength : 180;
+    const offset = Math.max(0, avgLen * info.index);
+    flatListRef.current?.scrollToOffset?.({ offset, animated: false });
+
     setTimeout(() => {
       flatListRef.current?.scrollToIndex?.({
-        index: info.index, animated: true, viewPosition: 0.05,
+        index: info.index,
+        animated: false,
+        viewPosition: 0.05,
       });
-    }, 250);
-  }, []);
+    }, 100 + attempt * 50);
+  }, [lockJumpingTemporarily]);
 
   const handlePrevPage = useCallback(() => {
     haptic();
@@ -2359,6 +2504,9 @@ export default function QuranReaderScreen({ onBack, initialSurah = 1 }) {
   }, []);
 
   /* ---------------- Render ---------------- */
+  const activeVerseId = activeWord?.verse?.id ?? null;
+  const activeWordId = activeWord?.id ?? null;
+
   const renderVerse = useCallback(({ item, index }) => {
     if (displayMode === 'meal_only') {
       return (
@@ -2380,7 +2528,7 @@ export default function QuranReaderScreen({ onBack, initialSurah = 1 }) {
         displayMode={displayMode}
         fontScale={activeScale}
         arabicSize={activeArabicSize}
-        activeWordId={activeWord?.id ?? null}
+        activeWordId={activeVerseId === item.id ? activeWordId : null}
         onWordPress={handleWordPress}
         isLast={index === displayedVerses.length - 1}
         surahNumber={surahNumber}
@@ -2390,7 +2538,7 @@ export default function QuranReaderScreen({ onBack, initialSurah = 1 }) {
     );
   }, [
     theme, displayMode, activeScale, activeArabicSize,
-    activeWord?.id, handleWordPress, handleVersePress,
+    activeVerseId, activeWordId, handleWordPress, handleVersePress,
     displayedVerses.length, surahNumber, highContrast,
   ]);
 
@@ -2408,7 +2556,7 @@ export default function QuranReaderScreen({ onBack, initialSurah = 1 }) {
   const isPageMode = layoutMode === 'page';
   const isSingleAyahMode = layoutMode === 'single_ayah';
 
-  const currentLayoutIcon = LAYOUT_MODES.find((m) => m.id === layoutMode)?.icon || 'swap-vertical';
+  const currentLayoutIcon = LAYOUT_MODES.find((m) => m.id === layoutMode)?.icon || 'list-outline';
   const currentLayoutLabel = LAYOUT_MODES.find((m) => m.id === layoutMode)?.label || 'Liste';
 
   const statusBarStyle = highContrast || rawTheme.mode === 'dark' || rawTheme.mode === 'oled' ? 'light-content' : 'dark-content';
@@ -2501,19 +2649,38 @@ export default function QuranReaderScreen({ onBack, initialSurah = 1 }) {
 
         <TouchableOpacity
           onPress={toggleLayout}
-          style={[styles.headerIconBtn, {
-            backgroundColor: layoutMode !== 'scroll' ? theme.primary : (highContrast ? '#121212' : theme.surface),
-            borderColor: highContrast ? '#FFFFFF' : theme.border,
+          activeOpacity={0.8}
+          style={[styles.headerLayoutBtn, {
+            backgroundColor: layoutMode !== 'scroll'
+              ? theme.primary
+              : (highContrast ? '#121212' : theme.surface),
+            borderColor: layoutMode !== 'scroll'
+              ? (highContrast ? '#000000' : theme.primary)
+              : (highContrast ? '#FFFFFF' : theme.border),
             borderWidth: highContrast ? 2 : 1,
           }]}
-          hitSlop={8}
-          accessibilityLabel={`Görünüm modu: ${currentLayoutLabel}`}
+          hitSlop={6}
+          accessibilityRole="button"
+          accessibilityLabel={`Görünüm modu: ${currentLayoutLabel}. Değiştirmek için dokunun`}
         >
           <Ionicons
             name={currentLayoutIcon}
-            size={18}
+            size={16}
             color={layoutMode !== 'scroll' ? (highContrast ? '#000000' : (theme.onPrimary || '#FFF')) : theme.primary}
           />
+          <Text
+            style={[
+              styles.headerLayoutBtnText,
+              {
+                color: layoutMode !== 'scroll'
+                  ? (highContrast ? '#000000' : (theme.onPrimary || '#FFF'))
+                  : theme.text,
+                fontWeight: highContrast ? '900' : '800',
+              },
+            ]}
+          >
+            {currentLayoutLabel}
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -2638,6 +2805,7 @@ export default function QuranReaderScreen({ onBack, initialSurah = 1 }) {
         <GestureDetector gesture={combinedGesture}>
           <View style={{ flex: 1 }}>
             <FlatList
+              key={`surah-list-${surahNumber}`}
               ref={flatListRef}
               data={displayedVerses}
               keyExtractor={(v) => String(v.id)}
@@ -2651,10 +2819,10 @@ export default function QuranReaderScreen({ onBack, initialSurah = 1 }) {
                 },
               ]}
               showsVerticalScrollIndicator={false}
-              initialNumToRender={8}
-              maxToRenderPerBatch={6}
+              initialNumToRender={listInitialRenderCount}
+              maxToRenderPerBatch={8}
+              updateCellsBatchingPeriod={50}
               windowSize={5}
-              removeClippedSubviews
               onViewableItemsChanged={handleViewableItemsChanged}
               viewabilityConfig={viewabilityConfig}
               onScrollToIndexFailed={handleScrollToIndexFailed}
@@ -2834,11 +3002,26 @@ const styles = StyleSheet.create({
     height: 3,
     borderRadius: 1.5,
   },
+  headerLayoutBtn: {
+    height: 38,
+    paddingHorizontal: 11,
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+  },
+  headerLayoutBtnText: {
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: -0.2,
+  },
 
   headerCenter: {
     flex: 1,
     minWidth: 0,
-    paddingHorizontal: 4,
+    paddingHorizontal: 2,
     paddingVertical: 4,
     justifyContent: 'center',
   },
@@ -2848,7 +3031,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   headerTitle: {
-    fontSize: 17,
+    fontSize: 16.5,
     fontWeight: '900',
     letterSpacing: -0.3,
     flexShrink: 1,
@@ -2856,7 +3039,7 @@ const styles = StyleSheet.create({
   headerMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
     marginTop: 2,
   },
   headerMeta: {
@@ -3429,7 +3612,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.65)', padding: 24,
   },
   jumpCard: {
-    width: '100%', maxWidth: 320,
+    width: '100%', maxWidth: 340,
     borderRadius: 20, borderWidth: 1, padding: 20,
   },
   jumpTitle: { fontSize: 17, fontWeight: '900' },
@@ -3440,9 +3623,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   jumpTargetPreview: {
-    paddingHorizontal: 12, paddingVertical: 8,
+    paddingHorizontal: 12, paddingVertical: 10,
     borderRadius: 10, borderWidth: 1, marginBottom: 14,
     alignItems: 'center',
+  },
+  jumpEdgeChip: {
+    paddingHorizontal: 10, paddingVertical: 4,
+    borderRadius: 8, borderWidth: 1,
   },
   jumpBtn: {
     height: 42, borderRadius: 10, borderWidth: 1,

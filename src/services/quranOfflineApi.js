@@ -1,5 +1,5 @@
 // src/services/quranOfflineApi.js
-// Bundled offline Kur'an — internet gerektirmez
+// Bundled Çevrimdışı Kur'an — internet gerektirmez
 // Kaynak: assets/quran/{1..114}.json (scripts/downloadQuran.js ile üretildi)
 
 import {
@@ -20,7 +20,7 @@ export async function fetchSurahVerses(surahNumber) {
 
   if (!hasOfflineBundle(surahNumber)) {
     throw new Error(
-      `Offline Kur'an paketi eksik (sure ${surahNumber}).\n` +
+      `Çevrimdışı Kur'an paketi eksik (sure ${surahNumber}).\n` +
       'Geliştirici: node scripts/downloadQuran.js komutunu çalıştırın.',
     );
   }

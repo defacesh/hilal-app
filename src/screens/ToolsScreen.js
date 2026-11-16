@@ -20,7 +20,6 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import {
   useAppStore,
   useReadingFontScale,
-  useGlobalHaptic,
 } from '../store/useAppStore';
 import { TOPICS } from '../data/ReligiousKnowledgeData';
 
@@ -111,7 +110,7 @@ const TOPIC_META = {
   'namaz-farzlari':     { icon: 'mosque',                   iconType: 'mci', category: 'Namaz' },
   'namaz-sunnetleri':   { icon: 'format-list-bulleted',     iconType: 'mci', category: 'Namaz' },
   'namaz-bozanlar':     { icon: 'alert-outline',                            category: 'Namaz' },
-  'namaz-vakitleri':    { icon: 'clock-outline',                            category: 'Namaz' },
+  'namaz-vakitleri':    { icon: 'time-outline',                             category: 'Namaz' },
   'namaz-rekatlari':    { icon: 'format-list-numbered',     iconType: 'mci', category: 'Namaz' },
   'sehiv-secdesi':      { icon: 'checkmark-circle-outline',                 category: 'Namaz' },
   'abdest-farzlari':    { icon: 'water-outline',                            category: 'Taharet' },
@@ -123,59 +122,106 @@ const TOPIC_META = {
   'oruc-bozanlar':      { icon: 'food-off',                 iconType: 'mci', category: 'Oruç' },
   'zekat-kimlere':      { icon: 'gift-outline',                             category: 'Zekât' },
   'tevhid-iman':        { icon: 'star-four-points',        iconType: 'mci', category: 'İnanç' },
-  'meleklere-iman':     { icon: 'creation',                iconType: 'mci', category: 'İnanç' },
-  'peygamberlere-iman': { icon: 'account-voice',           iconType: 'mci', category: 'İnanç' },
-  'kutsal-kitaplar':    { icon: 'book',              iconType: 'mci', category: 'İnanç' },
-  'ahiret-inanci':      { icon: 'weather-sunset-up',       iconType: 'mci', category: 'İnanç' },
-  'namaz-cesitleri':    { icon: 'format-list-checks',      iconType: 'mci', category: 'Namaz' },
-  'hac-ve-umre':        { icon: 'kaaba',                   iconType: 'mci', category: 'Hac' },
-  'ahlak-esaslari':     { icon: 'heart-multiple-outline',  iconType: 'mci', category: 'Ahlak' },
+  'meleklere-iman':     { icon: 'creation',                 iconType: 'mci', category: 'İnanç' },
+  'peygamberlere-iman': { icon: 'account-voice',            iconType: 'mci', category: 'İnanç' },
+  'kutsal-kitaplar':    { icon: 'book',                     iconType: 'mci', category: 'İnanç' },
+  'ahiret-inanci':      { icon: 'weather-sunset-up',        iconType: 'mci', category: 'İnanç' },
+  'namaz-cesitleri':    { icon: 'format-list-checks',       iconType: 'mci', category: 'Namaz' },
+  'hac-ve-umre':        { icon: 'mosque',                   iconType: 'mci', category: 'Hac' },
+  'ahlak-esaslari':     { icon: 'heart-multiple-outline',   iconType: 'mci', category: 'Ahlak' },
 };
 
 /* ================================================================
-   RELIGIOUS_TOPICS_DATA — TOPICS'ten türetilir
+   Statik Dini Konular (Modül seviyesinde tek seferlik ön hesaplama)
    ================================================================ */
-const buildReligiousTopicsData = () => {
-  return Object.entries(TOPICS).map(([id, topic]) => {
-    const meta = TOPIC_META[id] || {
-      icon: 'book-outline',
-      iconType: undefined,
-      category: 'Diğer',
-    };
+const RELIGIOUS_TOPICS = Object.entries(TOPICS).map(([id, topic]) => {
+  const meta = TOPIC_META[id] || {
+    icon: 'book-outline',
+    iconType: undefined,
+    category: 'Diğer',
+  };
 
-    const itemCount = (topic.groups || []).reduce(
-      (sum, g) => sum + (g.items?.length || 0),
-      0,
-    );
+  const itemCount = (topic.groups || []).reduce(
+    (sum, g) => sum + (g.items?.length || 0),
+    0,
+  );
 
-    const subtitleParts = [
-      topic.heroTitle || null,
-      itemCount > 0 ? `${itemCount} madde` : null,
-    ].filter(Boolean);
+  const subtitleParts = [
+    topic.heroTitle || null,
+    itemCount > 0 ? `${itemCount} madde` : null,
+  ].filter(Boolean);
 
-    return {
-      id,
-      title: topic.title,
-      subtitle: subtitleParts.join(' · '),
-      icon: meta.icon,
-      iconType: meta.iconType,
-      category: meta.category,
-    };
-  });
-};
+  return {
+    id,
+    title: topic.title,
+    subtitle: subtitleParts.join(' · '),
+    icon: meta.icon,
+    iconType: meta.iconType,
+    category: meta.category,
+  };
+});
+
+const RELIGIOUS_TOPIC_COUNT = RELIGIOUS_TOPICS.length;
+const RELIGIOUS_CATEGORY_COUNT = new Set(RELIGIOUS_TOPICS.map((t) => t.category)).size;
 
 /* ================================================================
    İslami Dekor
    ================================================================ */
-const IslamicDecor = memo(function IslamicDecor({ color }) {
+const IslamicDecor = memo(function IslamicDecor({ color, reduceMotion }) {
+  const floatAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (reduceMotion) return undefined;
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(floatAnim, {
+          toValue: 1,
+          duration: 3600,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(floatAnim, {
+          toValue: 0,
+          duration: 3600,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [floatAnim, reduceMotion]);
+
+  const animatedTransform = reduceMotion
+    ? [{ rotate: '22.5deg' }]
+    : [
+        {
+          rotate: floatAnim.interpolate({
+            inputRange: [0, 1],
+            outputRange: ['20deg', '25deg'],
+          }),
+        },
+        {
+          translateY: floatAnim.interpolate({
+            inputRange: [0, 1],
+            outputRange: [-3, 3],
+          }),
+        },
+      ];
+
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      <MaterialCommunityIcons
-        name="star-crescent"
-        size={220}
-        color={color}
-        style={{ position: 'absolute', right: -60, top: -40, opacity: 0.04, transform: [{ rotate: '22.5deg' }] }}
-      />
+      <Animated.View
+        style={{
+          position: 'absolute',
+          right: -60,
+          top: -40,
+          opacity: 0.045,
+          transform: animatedTransform,
+        }}
+      >
+        <MaterialCommunityIcons name="star-crescent" size={220} color={color} />
+      </Animated.View>
     </View>
   );
 });
@@ -192,11 +238,11 @@ const ToolIcon = memo(function ToolIcon({ tool, size = 24, color }) {
 });
 
 /* ================================================================
-   PressableScale — Anında ve Yüksek Tepkime (Optimized)
+   PressableScale — Anında ve Yüksek Tepkime
    ================================================================ */
 const PressableScale = memo(function PressableScale({
   onPress, children, style, containerStyle, disabled,
-  scaleTo = 0.97, accessibilityLabel, accessibilityRole = 'button',
+  scaleTo = 0.965, accessibilityLabel, accessibilityRole = 'button',
   haptic = 'light', reduceMotion = false,
 }) {
   const scale = useRef(new Animated.Value(1)).current;
@@ -206,7 +252,7 @@ const PressableScale = memo(function PressableScale({
     Animated.spring(scale, {
       toValue: scaleTo,
       useNativeDriver: true,
-      speed: 100, // Daha hızlı reaksiyon
+      speed: 120,
       bounciness: 2,
     }).start();
   }, [scale, scaleTo, reduceMotion]);
@@ -216,8 +262,8 @@ const PressableScale = memo(function PressableScale({
     Animated.spring(scale, {
       toValue: 1,
       useNativeDriver: true,
-      speed: 100,
-      bounciness: 2,
+      speed: 90,
+      bounciness: 4,
     }).start();
   }, [scale, reduceMotion]);
 
@@ -229,7 +275,7 @@ const PressableScale = memo(function PressableScale({
   return (
     <Animated.View style={[containerStyle, !reduceMotion && { transform: [{ scale }] }]}>
       <TouchableOpacity
-        activeOpacity={0.75}
+        activeOpacity={0.78}
         onPress={handlePress}
         onPressIn={pressIn}
         onPressOut={pressOut}
@@ -268,59 +314,86 @@ const SectionHeader = memo(function SectionHeader({ title, icon, iconType, theme
 /* ================================================================
    Featured Tile
    ================================================================ */
-const FeaturedTile = memo(function FeaturedTile({ tool, theme, onPress, fs, highContrast }) {
+const FeaturedTile = memo(function FeaturedTile({
+  tool, theme, onPress, fs, highContrast, animValue, reduceMotion,
+}) {
   const accentColor = highContrast ? (tool.hcAccent || '#FFFF00') : tool.accent;
-  return (
-    <PressableScale
-      onPress={onPress}
-      accessibilityLabel={`${tool.title}. ${tool.subtitle}`}
-      haptic="medium"
-      containerStyle={{ flex: 1 }}
-      style={[
-        styles.featuredTile,
-        {
-          backgroundColor: theme.surface,
-          borderColor: theme.border,
-          borderWidth: highContrast ? 2 : 1,
-          paddingVertical: fs(22),
-          shadowColor: theme.text,
-        },
-      ]}
-    >
-      <View style={[styles.featuredIcon, {
-        backgroundColor: highContrast ? '#000000' : `${accentColor}1A`,
-        width: fs(54), height: fs(54), borderRadius: fs(27),
-        borderWidth: highContrast ? 2 : 1, borderColor: highContrast ? '#FFFF00' : `${accentColor}33`,
-      }]}>
-        <ToolIcon tool={tool} size={fs(26)} color={accentColor} />
-      </View>
 
-      <Text
-        style={[styles.featuredTitle, { color: theme.text, fontSize: fs(15), fontWeight: highContrast ? '900' : '800' }]}
-        numberOfLines={2}
+  const entranceStyle = !reduceMotion && animValue
+    ? {
+        opacity: animValue,
+        transform: [
+          {
+            translateY: animValue.interpolate({
+              inputRange: [0, 1],
+              outputRange: [14, 0],
+            }),
+          },
+          {
+            scale: animValue.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0.92, 1],
+            }),
+          },
+        ],
+      }
+    : undefined;
+
+  return (
+    <Animated.View style={[{ flex: 1 }, entranceStyle]}>
+      <PressableScale
+        onPress={onPress}
+        accessibilityLabel={`${tool.title}. ${tool.subtitle}`}
+        haptic="medium"
+        reduceMotion={reduceMotion}
+        containerStyle={{ flex: 1 }}
+        style={[
+          styles.featuredTile,
+          {
+            backgroundColor: theme.surface,
+            borderColor: theme.border,
+            borderWidth: highContrast ? 2 : 1,
+            paddingVertical: fs(22),
+            shadowColor: theme.text,
+          },
+        ]}
       >
-        {tool.title}
-      </Text>
-      <Text
-        style={[styles.featuredSubtitle, { color: theme.textDim, fontSize: fs(12), fontWeight: highContrast ? '700' : '500' }]}
-        numberOfLines={2}
-      >
-        {tool.subtitle}
-      </Text>
-    </PressableScale>
+        <View style={[styles.featuredIcon, {
+          backgroundColor: highContrast ? '#000000' : `${accentColor}1A`,
+          width: fs(54), height: fs(54), borderRadius: fs(27),
+          borderWidth: highContrast ? 2 : 1, borderColor: highContrast ? '#FFFF00' : `${accentColor}33`,
+        }]}>
+          <ToolIcon tool={tool} size={fs(26)} color={accentColor} />
+        </View>
+
+        <Text
+          style={[styles.featuredTitle, { color: theme.text, fontSize: fs(15), fontWeight: highContrast ? '900' : '800' }]}
+          numberOfLines={2}
+        >
+          {tool.title}
+        </Text>
+        <Text
+          style={[styles.featuredSubtitle, { color: theme.textDim, fontSize: fs(12), fontWeight: highContrast ? '700' : '500' }]}
+          numberOfLines={2}
+        >
+          {tool.subtitle}
+        </Text>
+      </PressableScale>
+    </Animated.View>
   );
 });
 
 /* ================================================================
    Tool Row
    ================================================================ */
-const ToolRow = memo(function ToolRow({ tool, theme, onPress, showBadge = true, fs, isLast, highContrast }) {
+const ToolRow = memo(function ToolRow({ tool, theme, onPress, showBadge = true, fs, isLast, highContrast, reduceMotion }) {
   const disabled = Boolean(tool.badge && showBadge);
 
   return (
     <PressableScale
       onPress={disabled ? undefined : onPress}
       disabled={disabled}
+      reduceMotion={reduceMotion}
       accessibilityLabel={`${tool.title}. ${tool.subtitle}`}
       containerStyle={disabled && { opacity: 0.6 }}
       style={[
@@ -854,7 +927,6 @@ export default function ToolsScreen({
   const setReadingFontScale = useAppStore((state) => state.setReadingFontScale);
 
   const readingFontScale = useReadingFontScale();
-  const globalHaptic = useGlobalHaptic();
   const highContrast = useAppStore((s) => s.highContrast);
   const largeTouchTargets = useAppStore((s) => s.largeTouchTargets) ?? false;
 
@@ -876,20 +948,31 @@ export default function ToolsScreen({
   }, [rawTheme, highContrast]);
 
   const insets = useSafeAreaInsets();
+  const scrollRef = useRef(null);
 
   const [religiousModalVisible, setReligiousModalVisible] = useState(false);
+  const [hasOpenedModal, setHasOpenedModal] = useState(false);
   const [reduceMotion, setReduceMotion] = useState(false);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+
+  const scrollTopAnim = useRef(new Animated.Value(0)).current;
+  const showScrollTopRef = useRef(false);
+
+  const openReligiousModal = useCallback(() => {
+    setHasOpenedModal(true);
+    setReligiousModalVisible(true);
+  }, []);
 
   useEffect(() => {
     if (NAV_STATE.pendingReligiousReopen) {
       NAV_STATE.pendingReligiousReopen = false;
       const t = setTimeout(() => {
-        setReligiousModalVisible(true);
+        openReligiousModal();
       }, 30);
       return () => clearTimeout(t);
     }
     return undefined;
-  }, []);
+  }, [openReligiousModal]);
 
   const navigateLockRef = useRef(false);
 
@@ -900,7 +983,6 @@ export default function ToolsScreen({
   }, [fontScale]);
 
   const fs = useCallback((base) => Math.round(base * fontScale), [fontScale]);
-  const religiousTopics = useMemo(() => buildReligiousTopicsData(), []);
 
   const cycleFontScale = useCallback(() => {
     hapticImpact('medium');
@@ -908,9 +990,39 @@ export default function ToolsScreen({
     setReadingFontScale(FONT_SCALES[nextIdx]);
   }, [fontIdx, setReadingFontScale]);
 
+  /* ---------------- Üste Çık Butonu Kontrolü ---------------- */
+  const handleScroll = useCallback((event) => {
+    const offsetY = event.nativeEvent.contentOffset.y;
+    const shouldShow = offsetY > 220;
+    if (shouldShow === showScrollTopRef.current) return;
+
+    showScrollTopRef.current = shouldShow;
+    setShowScrollTop(shouldShow);
+
+    if (reduceMotion) {
+      scrollTopAnim.setValue(shouldShow ? 1 : 0);
+      return;
+    }
+
+    Animated.spring(scrollTopAnim, {
+      toValue: shouldShow ? 1 : 0,
+      speed: 28,
+      bounciness: 5,
+      useNativeDriver: true,
+    }).start();
+  }, [reduceMotion, scrollTopAnim]);
+
+  const handleScrollToTop = useCallback(() => {
+    hapticImpact('light');
+    scrollRef.current?.scrollTo({ y: 0, animated: !reduceMotion });
+  }, [reduceMotion]);
+
+  /* ---------------- Katmanlı Açılış Animasyon Değerleri ---------------- */
   const headerAnim = useRef(new Animated.Value(0)).current;
   const heroAnim = useRef(new Animated.Value(0)).current;
-  const bodyAnim = useRef(new Animated.Value(0)).current;
+  const featuredAnims = useRef(FEATURED_TOOLS.map(() => new Animated.Value(0))).current;
+  const sectionAnims = useRef([0, 1, 2, 3, 4].map(() => new Animated.Value(0))).current;
+  const bottomBarAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     let mounted = true;
@@ -923,24 +1035,100 @@ export default function ToolsScreen({
     if (reduceMotion) {
       headerAnim.setValue(1);
       heroAnim.setValue(1);
-      bodyAnim.setValue(1);
-      return;
+      featuredAnims.forEach((v) => v.setValue(1));
+      sectionAnims.forEach((v) => v.setValue(1));
+      bottomBarAnim.setValue(1);
+      return undefined;
     }
-    const seq = Animated.stagger(50, [
-      Animated.timing(headerAnim, { toValue: 1, duration: 250, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-      Animated.timing(heroAnim, { toValue: 1, duration: 300, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-      Animated.timing(bodyAnim, { toValue: 1, duration: 350, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-    ]);
-    seq.start();
-    return () => seq.stop();
-  }, [headerAnim, heroAnim, bodyAnim, reduceMotion]);
 
-  const makeAnimStyle = (v, offset = 8) => ({
-    opacity: v,
-    transform: [{
-      translateY: v.interpolate({ inputRange: [0, 1], outputRange: [offset, 0] }),
-    }],
-  });
+    const entrance = Animated.stagger(32, [
+      Animated.timing(headerAnim, {
+        toValue: 1,
+        duration: 180,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.spring(heroAnim, {
+        toValue: 1,
+        speed: 24,
+        bounciness: 5,
+        useNativeDriver: true,
+      }),
+      ...featuredAnims.map((anim) =>
+        Animated.spring(anim, {
+          toValue: 1,
+          speed: 26,
+          bounciness: 6,
+          useNativeDriver: true,
+        }),
+      ),
+      ...sectionAnims.map((anim) =>
+        Animated.timing(anim, {
+          toValue: 1,
+          duration: 220,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ),
+      Animated.timing(bottomBarAnim, {
+        toValue: 1,
+        duration: 200,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]);
+
+    entrance.start();
+    return () => entrance.stop();
+  }, [headerAnim, heroAnim, featuredAnims, sectionAnims, bottomBarAnim, reduceMotion]);
+
+  const makeSlideStyle = (v, offset = 12) => (
+    reduceMotion
+      ? undefined
+      : {
+          opacity: v,
+          transform: [{
+            translateY: v.interpolate({ inputRange: [0, 1], outputRange: [offset, 0] }),
+          }],
+        }
+  );
+
+  const heroAnimStyle = reduceMotion
+    ? undefined
+    : {
+        opacity: heroAnim,
+        transform: [
+          {
+            translateY: heroAnim.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }),
+          },
+          {
+            scale: heroAnim.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1] }),
+          },
+        ],
+      };
+
+  const bottomBarAnimStyle = reduceMotion
+    ? undefined
+    : {
+        opacity: bottomBarAnim,
+        transform: [{
+          translateY: bottomBarAnim.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }),
+        }],
+      };
+
+  const scrollTopAnimStyle = reduceMotion
+    ? { opacity: showScrollTop ? 1 : 0 }
+    : {
+        opacity: scrollTopAnim,
+        transform: [
+          {
+            translateY: scrollTopAnim.interpolate({ inputRange: [0, 1], outputRange: [16, 0] }),
+          },
+          {
+            scale: scrollTopAnim.interpolate({ inputRange: [0, 1], outputRange: [0.85, 1] }),
+          },
+        ],
+      };
 
   const routeHandlers = useMemo(() => ({
     zikir: onOpenZikir,
@@ -982,7 +1170,7 @@ export default function ToolsScreen({
       NAV_STATE.pendingReligiousReopen = true;
       navigateLockRef.current = false;
       onOpenReligiousTopic(topicId);
-    }, 120);
+    }, 100);
   }, [onOpenReligiousTopic]);
 
   const handleHomePress = useCallback(() => {
@@ -996,11 +1184,7 @@ export default function ToolsScreen({
   const heroBorder = highContrast ? '#FFFF00' : (isLight ? '#216E53' : '#1B3D34');
   const shadowColor = highContrast ? '#FFFFFF' : (isLight ? '#134E3A' : '#000000');
 
-  const religiousTopicCount = religiousTopics.length;
-  const religiousCategoryCount = useMemo(
-    () => new Set(religiousTopics.map((t) => t.category)).size,
-    [religiousTopics],
-  );
+  const scrollTopBtnSize = largeTouchTargets ? 54 : 48;
 
   return (
     <SafeAreaView
@@ -1013,7 +1197,7 @@ export default function ToolsScreen({
       />
 
       {/* HEADER */}
-      <Animated.View style={[styles.header, makeAnimStyle(headerAnim, 5)]}>
+      <Animated.View style={[styles.header, makeSlideStyle(headerAnim, -8)]}>
         {onBack ? (
           <TouchableOpacity
             onPress={() => { hapticImpact(); onBack(); }}
@@ -1069,6 +1253,9 @@ export default function ToolsScreen({
       </Animated.View>
 
       <ScrollView
+        ref={scrollRef}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
         contentContainerStyle={[
           styles.scrollContent,
           { paddingBottom: Math.max(24, insets.bottom + 90) },
@@ -1077,7 +1264,7 @@ export default function ToolsScreen({
       >
         {/* HERO */}
         {!isSimpleMode ? (
-          <Animated.View style={makeAnimStyle(heroAnim)}>
+          <Animated.View style={heroAnimStyle}>
             <View style={styles.heroShadowContainer}>
               <View style={[styles.heroCard, {
                 backgroundColor: heroBg,
@@ -1085,7 +1272,10 @@ export default function ToolsScreen({
                 borderWidth: highContrast ? 2 : 1,
                 shadowColor: shadowColor,
               }]}>
-                <IslamicDecor color={highContrast ? '#FFFF00' : theme.primary} />
+                <IslamicDecor
+                  color={highContrast ? '#FFFF00' : theme.primary}
+                  reduceMotion={reduceMotion}
+                />
                 <View style={[styles.heroIconGlass, {
                   backgroundColor: highContrast ? '#000000' : 'rgba(255,255,255,0.08)',
                   borderColor: highContrast ? '#FFFF00' : 'rgba(255,255,255,0.15)',
@@ -1107,83 +1297,88 @@ export default function ToolsScreen({
           </Animated.View>
         ) : null}
 
-        <Animated.View style={makeAnimStyle(bodyAnim)}>
-          {/* ÖNE ÇIKANLAR */}
-          <View style={styles.section}>
-            <SectionHeader title="Öne Çıkanlar" icon="star" theme={theme} fs={fs} highContrast={highContrast} />
-            <View style={styles.featuredGrid}>
-              {FEATURED_TOOLS.map((tool) => (
-                <FeaturedTile
-                  key={tool.id}
-                  tool={tool}
-                  theme={theme}
-                  fs={fs}
-                  highContrast={highContrast}
-                  onPress={() => handlePress(tool)}
-                />
-              ))}
-            </View>
-          </View>
-
-          {/* İBADET */}
-          <View style={styles.section}>
-            <SectionHeader title="İbadet" icon="heart" theme={theme} fs={fs} highContrast={highContrast} />
-            <GroupContainer theme={theme} highContrast={highContrast}>
-              {WORSHIP_TOOLS.map((tool, index) => (
-                <ToolRow
-                  key={tool.id}
-                  tool={tool}
-                  theme={theme}
-                  fs={fs}
-                  highContrast={highContrast}
-                  isLast={index === WORSHIP_TOOLS.length - 1}
-                  onPress={() => handlePress(tool)}
-                />
-              ))}
-            </GroupContainer>
-          </View>
-
-          {/* DİNÎ BİLGİLER */}
-          <View style={styles.section}>
-            <SectionHeader title="Dinî Bilgiler" icon="information-circle" theme={theme} fs={fs} highContrast={highContrast} />
-            <GroupContainer theme={theme} highContrast={highContrast}>
-              <ToolRow
-                tool={{
-                  id: 'religious-hub',
-                  title: 'Temel Dinî Bilgiler',
-                  subtitle: `${religiousTopicCount} konu · ${religiousCategoryCount} kategori`,
-                  icon: 'book-open-variant',
-                  iconType: 'mci',
-                }}
+        {/* ÖNE ÇIKANLAR */}
+        <Animated.View style={[styles.section, makeSlideStyle(sectionAnims[0], 10)]}>
+          <SectionHeader title="Öne Çıkanlar" icon="star" theme={theme} fs={fs} highContrast={highContrast} />
+          <View style={styles.featuredGrid}>
+            {FEATURED_TOOLS.map((tool, index) => (
+              <FeaturedTile
+                key={tool.id}
+                tool={tool}
                 theme={theme}
                 fs={fs}
                 highContrast={highContrast}
-                showBadge={false}
-                isLast={true}
-                onPress={() => { hapticImpact(); setReligiousModalVisible(true); }}
+                animValue={featuredAnims[index]}
+                reduceMotion={reduceMotion}
+                onPress={() => handlePress(tool)}
               />
-            </GroupContainer>
+            ))}
           </View>
+        </Animated.View>
 
-          {/* REHBER */}
-          <View style={styles.section}>
-            <SectionHeader title="Rehber" icon="compass" theme={theme} fs={fs} highContrast={highContrast} />
-            <GroupContainer theme={theme} highContrast={highContrast}>
-              {GUIDE_TOOLS.map((tool, index) => (
-                <ToolRow
-                  key={tool.id}
-                  tool={tool}
-                  theme={theme}
-                  fs={fs}
-                  highContrast={highContrast}
-                  isLast={index === GUIDE_TOOLS.length - 1}
-                  onPress={() => handlePress(tool)}
-                />
-              ))}
-            </GroupContainer>
-          </View>
+        {/* İBADET */}
+        <Animated.View style={[styles.section, makeSlideStyle(sectionAnims[1], 14)]}>
+          <SectionHeader title="İbadet" icon="heart" theme={theme} fs={fs} highContrast={highContrast} />
+          <GroupContainer theme={theme} highContrast={highContrast}>
+            {WORSHIP_TOOLS.map((tool, index) => (
+              <ToolRow
+                key={tool.id}
+                tool={tool}
+                theme={theme}
+                fs={fs}
+                highContrast={highContrast}
+                reduceMotion={reduceMotion}
+                isLast={index === WORSHIP_TOOLS.length - 1}
+                onPress={() => handlePress(tool)}
+              />
+            ))}
+          </GroupContainer>
+        </Animated.View>
 
-          {/* KÜTÜPHANE */}
+        {/* DİNÎ BİLGİLER */}
+        <Animated.View style={[styles.section, makeSlideStyle(sectionAnims[2], 14)]}>
+          <SectionHeader title="Dinî Bilgiler" icon="information-circle" theme={theme} fs={fs} highContrast={highContrast} />
+          <GroupContainer theme={theme} highContrast={highContrast}>
+            <ToolRow
+              tool={{
+                id: 'religious-hub',
+                title: 'Temel Dinî Bilgiler',
+                subtitle: `${RELIGIOUS_TOPIC_COUNT} konu · ${RELIGIOUS_CATEGORY_COUNT} kategori`,
+                icon: 'book-open-variant',
+                iconType: 'mci',
+              }}
+              theme={theme}
+              fs={fs}
+              highContrast={highContrast}
+              reduceMotion={reduceMotion}
+              showBadge={false}
+              isLast={true}
+              onPress={() => { hapticImpact(); openReligiousModal(); }}
+            />
+          </GroupContainer>
+        </Animated.View>
+
+        {/* REHBER */}
+        <Animated.View style={[styles.section, makeSlideStyle(sectionAnims[3], 14)]}>
+          <SectionHeader title="Rehber" icon="compass" theme={theme} fs={fs} highContrast={highContrast} />
+          <GroupContainer theme={theme} highContrast={highContrast}>
+            {GUIDE_TOOLS.map((tool, index) => (
+              <ToolRow
+                key={tool.id}
+                tool={tool}
+                theme={theme}
+                fs={fs}
+                highContrast={highContrast}
+                reduceMotion={reduceMotion}
+                isLast={index === GUIDE_TOOLS.length - 1}
+                onPress={() => handlePress(tool)}
+              />
+            ))}
+          </GroupContainer>
+        </Animated.View>
+
+        {/* KÜTÜPHANE & FOOTER */}
+        <Animated.View style={makeSlideStyle(sectionAnims[4], 14)}>
           <View style={styles.section}>
             <SectionHeader title="Kütüphane" icon="library" theme={theme} fs={fs} highContrast={highContrast} />
             <GroupContainer theme={theme} highContrast={highContrast}>
@@ -1194,6 +1389,7 @@ export default function ToolsScreen({
                   theme={theme}
                   fs={fs}
                   highContrast={highContrast}
+                  reduceMotion={reduceMotion}
                   isLast={index === LIBRARY_TOOLS.length - 1}
                   onPress={() => handlePress(tool)}
                 />
@@ -1201,7 +1397,6 @@ export default function ToolsScreen({
             </GroupContainer>
           </View>
 
-          {/* INFO FOOTER */}
           {!isSimpleMode ? (
             <View style={[styles.infoFooter, {
               backgroundColor: theme.surface,
@@ -1230,20 +1425,58 @@ export default function ToolsScreen({
         </Animated.View>
       </ScrollView>
 
-      <ReligiousModal
-        visible={religiousModalVisible}
-        onClose={() => setReligiousModalVisible(false)}
-        onSelectTopic={handleReligiousTopicPress}
-        topics={religiousTopics}
-        theme={theme}
-        fs={fs}
-        highContrast={highContrast}
-        largeTouchTargets={largeTouchTargets}
-        reduceMotion={reduceMotion}
-      />
+      {/* ÜSTE ÇIK YÜZEN BUTON */}
+      <Animated.View
+        pointerEvents={showScrollTop ? 'auto' : 'none'}
+        style={[
+          styles.scrollTopWrap,
+          scrollTopAnimStyle,
+          { bottom: Math.max(82, insets.bottom + 78) },
+        ]}
+      >
+        <PressableScale
+          onPress={handleScrollToTop}
+          haptic={false}
+          reduceMotion={reduceMotion}
+          accessibilityRole="button"
+          accessibilityLabel="Sayfanın en üstüne çık"
+          style={[
+            styles.scrollTopBtn,
+            {
+              width: scrollTopBtnSize,
+              height: scrollTopBtnSize,
+              borderRadius: scrollTopBtnSize / 2,
+              backgroundColor: highContrast ? '#000000' : (theme.surfaceElevated || theme.surface),
+              borderColor: highContrast ? '#FFFF00' : theme.border,
+              borderWidth: highContrast ? 2 : 1,
+              shadowColor: highContrast ? '#FFFF00' : '#000000',
+            },
+          ]}
+        >
+          <Ionicons
+            name="arrow-up"
+            size={fs(22)}
+            color={highContrast ? '#FFFF00' : theme.primary}
+          />
+        </PressableScale>
+      </Animated.View>
+
+      {hasOpenedModal ? (
+        <ReligiousModal
+          visible={religiousModalVisible}
+          onClose={() => setReligiousModalVisible(false)}
+          onSelectTopic={handleReligiousTopicPress}
+          topics={RELIGIOUS_TOPICS}
+          theme={theme}
+          fs={fs}
+          highContrast={highContrast}
+          largeTouchTargets={largeTouchTargets}
+          reduceMotion={reduceMotion}
+        />
+      ) : null}
 
       {/* BOTTOM BAR */}
-      <View style={[styles.bottomBar, {
+      <Animated.View style={[styles.bottomBar, bottomBarAnimStyle, {
         backgroundColor: theme.surfaceElevated || theme.surface,
         borderTopColor: theme.border,
         borderTopWidth: highContrast ? 2 : StyleSheet.hairlineWidth,
@@ -1301,7 +1534,7 @@ export default function ToolsScreen({
             Ayarlar
           </Text>
         </PressableScale>
-      </View>
+      </Animated.View>
     </SafeAreaView>
   );
 }
@@ -1402,6 +1635,18 @@ const styles = StyleSheet.create({
   infoTextContainer: { flex: 1 },
   infoTitle: { fontWeight: '900' },
   infoDescription: { lineHeight: 22, marginTop: 6, fontWeight: '500' },
+
+  /* ÜSTE ÇIK BUTONU */
+  scrollTopWrap: {
+    position: 'absolute',
+    right: 20,
+    zIndex: 20,
+  },
+  scrollTopBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...SHADOW_LG,
+  },
 
   bottomBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around',

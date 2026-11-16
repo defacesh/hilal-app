@@ -675,7 +675,8 @@ export async function fetchDiyanetTimes(
   const { bypassCache = false } = options;
 
   const ilce = await resolveIlceID(cityName, districtName);
-  const timesKey = `${CACHE_PREFIX}times:${ilce.ilceID}`;
+  const todayStr = localDateKey(new Date());
+  const timesKey = `${CACHE_PREFIX}times:${ilce.ilceID}:${todayStr}`;
 
   const result = await getCachedOrFetch({
     key: timesKey,

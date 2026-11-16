@@ -22,6 +22,7 @@ import {
   AppState,
   BackHandler,
   Platform,
+  Pressable,
   StatusBar,
   View,
   Text,
@@ -42,6 +43,7 @@ import * as Font from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 
 import { useAppStore, useTheme } from './src/store/useAppStore';
+import { getNotifications } from './src/services/prayerNotifications';
 
 // İlk açılış hızı için kritik ekranlar
 import OnboardingScreen from './src/screens/OnboardingScreen';
@@ -77,9 +79,9 @@ const EXTRA_FONTS = {
 };
 
 /* ================================================================
-   Ekran Kimlikleri
+   Ekran Kimlikleri & Tembel (Lazy) Önbellek
    ================================================================ */
-const SCREENS = {
+const SCREENS = Object.freeze({
   home: 'home',
   qibla: 'qibla',
   settings: 'settings',
@@ -98,12 +100,63 @@ const SCREENS = {
   ruyaTabirleri: 'ruya-tabirleri',
   vedaHutbesi: 'veda-hutbesi',
   siyer: 'siyer',
+});
+
+const ROOT_STACK = Object.freeze([SCREENS.home]);
+
+const SCREEN_LOADERS = {
+  [SCREENS.qibla]: () => require('./src/screens/QiblaScreen').default,
+  [SCREENS.settings]: () => require('./src/screens/SettingsScreen').default,
+  [SCREENS.devNotifications]: () => require('./src/screens/NotificationTestScreen').default,
+  [SCREENS.tools]: () => require('./src/screens/ToolsScreen').default,
+  [SCREENS.zikir]: () => require('./src/screens/ZikirmatikScreen').default,
+  [SCREENS.dualar]: () => require('./src/screens/DualarScreen').default,
+  [SCREENS.quranReader]: () => require('./src/screens/QuranReaderScreen').default,
+  [SCREENS.takvim]: () => require('./src/screens/CalendarScreen').default,
+  [SCREENS.esma]: () => require('./src/screens/EsmaulHusnaScreen').default,
+  [SCREENS.ramazan]: () => require('./src/screens/RamazanScreen').default,
+  [SCREENS.terimler]: () => require('./src/screens/ReligiousTermsScreen').default,
+  [SCREENS.namazRehberi]: () => require('./src/screens/NamazRehberiScreen').default,
+  [SCREENS.tesbihat]: () => require('./src/screens/TesbihatScreen').default,
+  [SCREENS.zekat]: () => require('./src/screens/ZekatScreen').default,
+  [SCREENS.ruyaTabirleri]: () => require('./src/screens/RuyaTabirleriScreen').default,
+  [SCREENS.vedaHutbesi]: () => require('./src/screens/VedaHutbesiScreen').default,
+  [SCREENS.siyer]: () => require('./src/screens/SiyerScreen').default,
 };
 
-const ROOT_STACK = [SCREENS.home];
+const SCREEN_CACHE = new Map();
+
+function getScreenComponent(screenId) {
+  if (SCREEN_CACHE.has(screenId)) {
+    return SCREEN_CACHE.get(screenId);
+  }
+  const loader = SCREEN_LOADERS[screenId];
+  const Component = loader
+    ? loader()
+    : require('./src/screens/ReligiousKnowledgeScreen').default;
+  SCREEN_CACHE.set(screenId, Component);
+  return Component;
+}
+
+const scheduleIdleWork = (cb, timeout = 1200) => {
+  if (typeof globalThis.requestIdleCallback === 'function') {
+    const id = globalThis.requestIdleCallback(cb, { timeout });
+    return () => globalThis.cancelIdleCallback?.(id);
+  }
+  const id = setTimeout(cb, 300);
+  return () => clearTimeout(id);
+};
+
+const isLightColorScheme = (theme) => Boolean(
+  theme?.isLight ||
+  theme?.mode === 'light' ||
+  theme?.mode === 'modernLight' ||
+  theme?.mode === 'sepia' ||
+  theme?.mode === 'sand'
+);
 
 /* ================================================================
-   ErrorBoundary
+   ErrorBoundary (Kurtarılabilir)
    ================================================================ */
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -119,6 +172,15 @@ class ErrorBoundary extends React.Component {
     console.error('[App ErrorBoundary]', error, info);
   }
 
+  handleRetry = () => {
+    this.setState({ hasError: false, error: null });
+  };
+
+  handleGoHome = () => {
+    this.setState({ hasError: false, error: null });
+    this.props.onResetToHome?.();
+  };
+
   render() {
     if (this.state.hasError) {
       const theme = this.props.theme;
@@ -129,20 +191,84 @@ class ErrorBoundary extends React.Component {
             { backgroundColor: theme?.background ?? '#0F1115' },
           ]}
         >
-          <Ionicons
-            name="alert-circle-outline"
-            size={56}
-            color={theme?.textDim ?? '#999'}
-          />
+          <View
+            style={[
+              styles.errorIconBox,
+              {
+                backgroundColor: theme?.surfaceElevated ?? 'rgba(255,255,255,0.06)',
+                borderColor: theme?.border ?? 'rgba(255,255,255,0.12)',
+              },
+            ]}
+          >
+            <Ionicons
+              name="alert-circle-outline"
+              size={44}
+              color={theme?.primary ?? '#EF4444'}
+            />
+          </View>
           <Text style={[styles.errorTitle, { color: theme?.text ?? '#FFFFFF' }]}>
             Bir sorun oluştu
           </Text>
-          <Text style={[styles.errorMessage, { color: theme?.textDim ?? '#999' }]} numberOfLines={6}>
+          <Text
+            style={[styles.errorMessage, { color: theme?.textDim ?? '#999' }]}
+            numberOfLines={5}
+          >
             {this.state.error?.message ?? 'Beklenmeyen bir hata oluştu.'}
           </Text>
-          <Text style={[styles.errorHint, { color: theme?.textMuted ?? '#666' }]}>
-            Uygulamayı yeniden başlatmayı deneyin.
-          </Text>
+
+          <View style={styles.errorActions}>
+            <Pressable
+              onPress={this.handleRetry}
+              accessibilityRole="button"
+              accessibilityLabel="Tekrar dene"
+              style={({ pressed }) => [
+                styles.errorPrimaryBtn,
+                {
+                  backgroundColor: theme?.primary ?? '#10B981',
+                  opacity: pressed ? 0.85 : 1,
+                },
+              ]}
+            >
+              <Ionicons
+                name="refresh"
+                size={16}
+                color={theme?.onPrimary ?? '#FFFFFF'}
+              />
+              <Text
+                style={[
+                  styles.errorPrimaryBtnText,
+                  { color: theme?.onPrimary ?? '#FFFFFF' },
+                ]}
+              >
+                Tekrar Dene
+              </Text>
+            </Pressable>
+
+            {this.props.onResetToHome ? (
+              <Pressable
+                onPress={this.handleGoHome}
+                accessibilityRole="button"
+                accessibilityLabel="Ana sayfaya dön"
+                style={({ pressed }) => [
+                  styles.errorSecondaryBtn,
+                  {
+                    backgroundColor: theme?.surface ?? 'rgba(255,255,255,0.06)',
+                    borderColor: theme?.border ?? 'rgba(255,255,255,0.15)',
+                    opacity: pressed ? 0.8 : 1,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.errorSecondaryBtnText,
+                    { color: theme?.text ?? '#FFFFFF' },
+                  ]}
+                >
+                  Ana Sayfaya Dön
+                </Text>
+              </Pressable>
+            ) : null}
+          </View>
         </SafeAreaView>
       );
     }
@@ -159,7 +285,7 @@ function HydrationScreen({ theme }) {
   useEffect(() => {
     const animation = Animated.timing(fade, {
       toValue: 1,
-      duration: 300,
+      duration: 280,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     });
@@ -167,16 +293,15 @@ function HydrationScreen({ theme }) {
     return () => animation.stop();
   }, [fade]);
 
-  const isLight = Boolean(
-    theme.isLight ||
-      theme.mode === 'light' ||
-      theme.mode === 'modernLight' ||
-      theme.mode === 'sepia' ||
-      theme.mode === 'sand'
-  );
+  const isLight = isLightColorScheme(theme);
 
   return (
-    <SafeAreaView style={[styles.hydrationContainer, { backgroundColor: theme.background }]}>
+    <SafeAreaView
+      style={[
+        styles.hydrationContainer,
+        { backgroundColor: theme.background },
+      ]}
+    >
       <StatusBar barStyle={isLight ? 'dark-content' : 'light-content'} />
       <Animated.View style={{ alignItems: 'center', opacity: fade }}>
         <View
@@ -188,10 +313,20 @@ function HydrationScreen({ theme }) {
             },
           ]}
         >
-          <MaterialCommunityIcons name="star-crescent" size={44} color={theme.primary} />
+          <MaterialCommunityIcons
+            name="star-crescent"
+            size={44}
+            color={theme.primary}
+          />
         </View>
-        <Text style={[styles.hydrationBrand, { color: theme.text }]}>HİLAL</Text>
-        <ActivityIndicator size="small" color={theme.primary} style={styles.loadingIndicator} />
+        <Text style={[styles.hydrationBrand, { color: theme.text }]}>
+          HİLAL
+        </Text>
+        <ActivityIndicator
+          size="small"
+          color={theme.primary}
+          style={styles.loadingIndicator}
+        />
       </Animated.View>
     </SafeAreaView>
   );
@@ -206,11 +341,23 @@ export default function App() {
   const themeMode = useAppStore((s) => s.themeMode);
   const theme = useTheme();
 
-  /* ---------------- Hızlı Font Yükleme ---------------- */
-  Font.useFonts(ESSENTIAL_FONTS);
+  /* ---------------- Kritik Font & Store Hydration ---------------- */
+  const [essentialFontsReady, setEssentialFontsReady] = useState(false);
+  const [hydrated, setHydrated] = useState(() =>
+    useAppStore.persist.hasHydrated()
+  );
 
-  /* ---------------- Store Hydration ---------------- */
-  const [hydrated, setHydrated] = useState(() => useAppStore.persist.hasHydrated());
+  useEffect(() => {
+    let alive = true;
+    Font.loadAsync(ESSENTIAL_FONTS)
+      .catch(() => {})
+      .finally(() => {
+        if (alive) setEssentialFontsReady(true);
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   useEffect(() => {
     const persist = useAppStore.persist;
@@ -225,7 +372,7 @@ export default function App() {
 
     const timeout = setTimeout(() => {
       setHydrated(true);
-    }, 1500);
+    }, 1200);
 
     return () => {
       clearTimeout(timeout);
@@ -233,7 +380,29 @@ export default function App() {
     };
   }, []);
 
-  const ready = hydrated;
+  const ready = hydrated && essentialFontsReady;
+
+  /* ---------------- Bildirim altyapısını hazırla ----------------
+     İzin istemez; yalnızca native modülü, foreground handler'ı ve
+     mevcut planlanmış bildirim önbelleğini hazırlar. */
+  useEffect(() => {
+    if (!ready || isFirstLaunch) return undefined;
+
+    let active = true;
+
+    getNotifications().catch((error) => {
+      if (__DEV__ && active) {
+        console.warn(
+          '[Hilal] Bildirim altyapısı başlatılamadı:',
+          error?.message
+        );
+      }
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [ready, isFirstLaunch]);
 
   /* ---------------- Splash Gizle ---------------- */
   useEffect(() => {
@@ -242,30 +411,56 @@ export default function App() {
     }
   }, [ready]);
 
-  /* ---------------- Ek fontlar + ekran ısıtma ---------------- */
+  /* ---------------- Ek Fontlar & Arka Plan Ekran Isıtma ---------------- */
   useEffect(() => {
-    if (!hydrated) return undefined;
-    const fontTimer = setTimeout(() => {
-      Font.loadAsync(EXTRA_FONTS).catch(() => {});
-    }, 1500);
-    return () => clearTimeout(fontTimer);
-  }, [hydrated]);
+    if (!ready) return undefined;
 
-  useEffect(() => {
-    if (!hydrated || isFirstLaunch) return undefined;
-    const loaders = [
-      () => require('./src/screens/ToolsScreen'),
-      () => require('./src/screens/SettingsScreen'),
-      () => require('./src/screens/QiblaScreen'),
-      () => require('./src/screens/DualarScreen'),
-      () => require('./src/screens/ZikirmatikScreen'),
-      () => require('./src/screens/QuranReaderScreen'),
-    ];
-    const timers = loaders.map((load, i) => setTimeout(() => {
-      try { load(); } catch {}
-    }, 2500 + i * 800));
-    return () => timers.forEach(clearTimeout);
-  }, [hydrated, isFirstLaunch]);
+    let cancelled = false;
+    const cleanups = [];
+
+    const cancelIdle = scheduleIdleWork(() => {
+      if (cancelled) return;
+
+      const fontTimer = setTimeout(() => {
+        if (!cancelled) Font.loadAsync(EXTRA_FONTS).catch(() => {});
+      }, 600);
+      cleanups.push(() => clearTimeout(fontTimer));
+
+      if (!isFirstLaunch) {
+        const warmupTargets = [
+          SCREENS.tools,
+          SCREENS.settings,
+          SCREENS.qibla,
+          SCREENS.dualar,
+          SCREENS.zikir,
+          SCREENS.quranReader,
+        ];
+
+        warmupTargets.forEach((screenId, idx) => {
+          const t = setTimeout(() => {
+            if (cancelled) return;
+
+            const cancelStep = scheduleIdleWork(() => {
+              if (cancelled) return;
+              try {
+                getScreenComponent(screenId);
+              } catch {}
+            }, 1500);
+
+            cleanups.push(cancelStep);
+          }, 1200 + idx * 650);
+
+          cleanups.push(() => clearTimeout(t));
+        });
+      }
+    }, 1500);
+
+    return () => {
+      cancelled = true;
+      cancelIdle();
+      cleanups.forEach((fn) => fn());
+    };
+  }, [ready, isFirstLaunch]);
 
   /* ---------------- Navigasyon ---------------- */
   const [stack, setStack] = useState(ROOT_STACK);
@@ -273,50 +468,89 @@ export default function App() {
 
   const navigate = useCallback((screen) => {
     if (!screen || typeof screen !== 'string') return;
+
     setStack((previous) => {
       if (previous[previous.length - 1] === screen) return previous;
+
+      const existingIndex = previous.indexOf(screen);
+      if (existingIndex !== -1) {
+        return previous.slice(0, existingIndex + 1);
+      }
+
       return [...previous, screen];
     });
   }, []);
 
   const goBack = useCallback(() => {
-    setStack((previous) => {
-      if (previous.length <= 1) return previous;
-      return previous.slice(0, -1);
-    });
+    setStack((previous) =>
+      previous.length <= 1 ? previous : previous.slice(0, -1)
+    );
   }, []);
 
   const goHome = useCallback(() => {
-    setStack((previous) => {
-      if (previous.length === 1 && previous[0] === SCREENS.home) {
-        return previous;
-      }
-      return ROOT_STACK;
-    });
+    setStack((previous) =>
+      previous.length === 1 && previous[0] === SCREENS.home
+        ? previous
+        : ROOT_STACK
+    );
   }, []);
 
-  const homeHandlers = useMemo(() => ({
-    onOpenQibla: () => navigate(SCREENS.qibla),
-    onOpenSettings: () => navigate(SCREENS.settings),
-    onOpenTools: () => navigate(SCREENS.tools),
-    onOpenZikir: () => navigate(SCREENS.zikir),
-    onOpenDua: () => navigate(SCREENS.dualar),
-    onOpenCalendar: () => navigate(SCREENS.takvim),
-    onOpenNotificationSettings: () => navigate(SCREENS.settings),
-    onOpenQuran: () => navigate(SCREENS.quranReader),
-    onOpenLocation: () => navigate(SCREENS.settings),
-  }), [navigate]);
+  const homeHandlers = useMemo(
+    () => ({
+      onOpenQibla: () => navigate(SCREENS.qibla),
+      onOpenSettings: () => navigate(SCREENS.settings),
+      onOpenTools: () => navigate(SCREENS.tools),
+      onOpenZikir: () => navigate(SCREENS.zikir),
+      onOpenDua: () => navigate(SCREENS.dualar),
+      onOpenCalendar: () => navigate(SCREENS.takvim),
+      onOpenNotificationSettings: () => navigate(SCREENS.settings),
+      onOpenQuran: () => navigate(SCREENS.quranReader),
+      onOpenLocation: () => navigate(SCREENS.settings),
+    }),
+    [navigate]
+  );
+
+  const toolsHandlers = useMemo(
+    () => ({
+      onBack: goHome,
+      onOpenHome: goHome,
+      onOpenZikir: () => navigate(SCREENS.zikir),
+      onOpenDua: () => navigate(SCREENS.dualar),
+      onOpenCalendar: () => navigate(SCREENS.takvim),
+      onOpenQibla: () => navigate(SCREENS.qibla),
+      onOpenSettings: () => navigate(SCREENS.settings),
+      onOpenEsma: () => navigate(SCREENS.esma),
+      onOpenRamazan: () => navigate(SCREENS.ramazan),
+      onOpenZekat: () => navigate(SCREENS.zekat),
+      onOpenNamazRehberi: () => navigate(SCREENS.namazRehberi),
+      onOpenTesbihat: () => navigate(SCREENS.tesbihat),
+      onOpenQuranReader: () => navigate(SCREENS.quranReader),
+      onOpenReligiousTerms: () => navigate(SCREENS.terimler),
+      onOpenReligiousTopic: (topicId) => navigate(topicId),
+      onOpenSiyer: () => navigate(SCREENS.siyer),
+      onOpenVedaHutbesi: () => navigate(SCREENS.vedaHutbesi),
+      onOpenRuyaTabirleri: () => navigate(SCREENS.ruyaTabirleri),
+    }),
+    [goHome, navigate]
+  );
 
   /* ---------------- Dinamik Tema Canlı Saat & AppState Senkronu ---------------- */
   const [, setThemeTick] = useState(0);
+
   useEffect(() => {
     if (themeMode !== 'dynamic') return undefined;
-    const interval = setInterval(() => setThemeTick((v) => v + 1), 60 * 1000);
+
+    const interval = setInterval(
+      () => setThemeTick((v) => v + 1),
+      60 * 1000
+    );
+
     const appStateSub = AppState.addEventListener('change', (nextState) => {
       if (nextState === 'active') {
         setThemeTick((v) => v + 1);
       }
     });
+
     return () => {
       clearInterval(interval);
       appStateSub.remove();
@@ -327,31 +561,33 @@ export default function App() {
   const stackRef = useRef(stack);
   stackRef.current = stack;
 
-  const goBackRef = useRef(goBack);
-  goBackRef.current = goBack;
+  const isFirstLaunchRef = useRef(isFirstLaunch);
+  isFirstLaunchRef.current = isFirstLaunch;
 
   useEffect(() => {
     if (Platform.OS !== 'android') return undefined;
-    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
-      const currentStack = stackRef.current;
-      if (currentStack.length > 1) {
-        goBackRef.current();
-        return true;
+
+    const subscription = BackHandler.addEventListener(
+      'hardwareBackPress',
+      () => {
+        if (isFirstLaunchRef.current) return false;
+
+        if (stackRef.current.length > 1) {
+          goBack();
+          return true;
+        }
+
+        return false;
       }
-      return false;
-    });
+    );
+
     return () => subscription.remove();
-  }, []);
+  }, [goBack]);
 
   /* ---------------- Tema Yardımcıları ---------------- */
-  const isLightTheme = Boolean(
-    theme.isLight ||
-      theme.mode === 'light' ||
-      theme.mode === 'modernLight' ||
-      theme.mode === 'sepia' ||
-      theme.mode === 'sand'
-  );
-  const statusBarStyle = isLightTheme ? 'dark-content' : 'light-content';
+  const statusBarStyle = isLightColorScheme(theme)
+    ? 'dark-content'
+    : 'light-content';
 
   /* ---------------- Yükleme Ekranı ---------------- */
   if (!ready) {
@@ -372,108 +608,37 @@ export default function App() {
       return <OnboardingScreen />;
     }
 
-    switch (currentScreen) {
-      case SCREENS.home:
-        return null;
-      case SCREENS.qibla: {
-        const QiblaScreen = require('./src/screens/QiblaScreen').default;
-        return <QiblaScreen onBack={goBack} />;
-      }
-      case SCREENS.settings: {
-        const SettingsScreen = require('./src/screens/SettingsScreen').default;
-        return (
-          <SettingsScreen
-            onBack={goBack}
-            onOpenDevNotifications={__DEV__ ? () => navigate(SCREENS.devNotifications) : undefined}
-          />
-        );
-      }
-      case SCREENS.devNotifications: {
-        const NotificationTestScreen = require('./src/screens/NotificationTestScreen').default;
-        return <NotificationTestScreen onBack={goBack} />;
-      }
-      case SCREENS.tools: {
-        const ToolsScreen = require('./src/screens/ToolsScreen').default;
-        return (
-          <ToolsScreen
-            onBack={goHome}
-            onOpenHome={goHome}
-            onOpenZikir={() => navigate(SCREENS.zikir)}
-            onOpenDua={() => navigate(SCREENS.dualar)}
-            onOpenCalendar={() => navigate(SCREENS.takvim)}
-            onOpenQibla={() => navigate(SCREENS.qibla)}
-            onOpenSettings={() => navigate(SCREENS.settings)}
-            onOpenEsma={() => navigate(SCREENS.esma)}
-            onOpenRamazan={() => navigate(SCREENS.ramazan)}
-            onOpenZekat={() => navigate(SCREENS.zekat)}
-            onOpenNamazRehberi={() => navigate(SCREENS.namazRehberi)}
-            onOpenTesbihat={() => navigate(SCREENS.tesbihat)}
-            onOpenQuranReader={() => navigate(SCREENS.quranReader)}
-            onOpenReligiousTerms={() => navigate(SCREENS.terimler)}
-            onOpenReligiousTopic={(topicId) => navigate(topicId)}
-            onOpenSiyer={() => navigate(SCREENS.siyer)}
-            onOpenVedaHutbesi={() => navigate(SCREENS.vedaHutbesi)}
-            onOpenRuyaTabirleri={() => navigate(SCREENS.ruyaTabirleri)}
-          />
-        );
-      }
-      case SCREENS.zikir: {
-        const ZikirmatikScreen = require('./src/screens/ZikirmatikScreen').default;
-        return <ZikirmatikScreen onBack={goBack} />;
-      }
-      case SCREENS.dualar: {
-        const DualarScreen = require('./src/screens/DualarScreen').default;
-        return <DualarScreen onBack={goBack} />;
-      }
-      case SCREENS.quranReader: {
-        const QuranReaderScreen = require('./src/screens/QuranReaderScreen').default;
-        return <QuranReaderScreen onBack={goBack} />;
-      }
-      case SCREENS.takvim: {
-        const CalendarScreen = require('./src/screens/CalendarScreen').default;
-        return <CalendarScreen onBack={goBack} />;
-      }
-      case SCREENS.esma: {
-        const EsmaulHusnaScreen = require('./src/screens/EsmaulHusnaScreen').default;
-        return <EsmaulHusnaScreen onBack={goBack} />;
-      }
-      case SCREENS.ramazan: {
-        const RamazanScreen = require('./src/screens/RamazanScreen').default;
-        return <RamazanScreen onBack={goBack} />;
-      }
-      case SCREENS.terimler: {
-        const ReligiousTermsScreen = require('./src/screens/ReligiousTermsScreen').default;
-        return <ReligiousTermsScreen onBack={goBack} />;
-      }
-      case SCREENS.namazRehberi: {
-        const NamazRehberiScreen = require('./src/screens/NamazRehberiScreen').default;
-        return <NamazRehberiScreen onBack={goBack} />;
-      }
-      case SCREENS.tesbihat: {
-        const TesbihatScreen = require('./src/screens/TesbihatScreen').default;
-        return <TesbihatScreen onBack={goBack} />;
-      }
-      case SCREENS.zekat: {
-        const ZekatScreen = require('./src/screens/ZekatScreen').default;
-        return <ZekatScreen onBack={goBack} />;
-      }
-      case SCREENS.ruyaTabirleri: {
-        const RuyaTabirleriScreen = require('./src/screens/RuyaTabirleriScreen').default;
-        return <RuyaTabirleriScreen onBack={goBack} />;
-      }
-      case SCREENS.vedaHutbesi: {
-        const VedaHutbesiScreen = require('./src/screens/VedaHutbesiScreen').default;
-        return <VedaHutbesiScreen onBack={goBack} />;
-      }
-      case SCREENS.siyer: {
-        const SiyerScreen = require('./src/screens/SiyerScreen').default;
-        return <SiyerScreen onBack={goBack} />;
-      }
-      default: {
-        const ReligiousKnowledgeScreen = require('./src/screens/ReligiousKnowledgeScreen').default;
-        return <ReligiousKnowledgeScreen topicId={currentScreen} onBack={goBack} />;
-      }
+    if (currentScreen === SCREENS.home) {
+      return null;
     }
+
+    const ScreenComponent = getScreenComponent(currentScreen);
+
+    if (currentScreen === SCREENS.settings) {
+      return (
+        <ScreenComponent
+          onBack={goBack}
+          onOpenDevNotifications={
+            __DEV__ ? () => navigate(SCREENS.devNotifications) : undefined
+          }
+        />
+      );
+    }
+
+    if (currentScreen === SCREENS.tools) {
+      return <ScreenComponent {...toolsHandlers} />;
+    }
+
+    if (!SCREEN_LOADERS[currentScreen]) {
+      return (
+        <ScreenComponent
+          topicId={currentScreen}
+          onBack={goBack}
+        />
+      );
+    }
+
+    return <ScreenComponent onBack={goBack} />;
   };
 
   return (
@@ -484,7 +649,13 @@ export default function App() {
           backgroundColor={theme.background}
           translucent={false}
         />
-        <View style={[styles.appContainer, { backgroundColor: theme.background }]}>
+
+        <View
+          style={[
+            styles.appContainer,
+            { backgroundColor: theme.background },
+          ]}
+        >
           {!isFirstLaunch ? (
             <View
               style={homeVisible ? styles.layer : styles.layerHidden}
@@ -501,7 +672,11 @@ export default function App() {
           ) : null}
 
           {!homeVisible ? (
-            <ErrorBoundary key={isFirstLaunch ? 'onboarding' : currentScreen} theme={theme}>
+            <ErrorBoundary
+              key={isFirstLaunch ? 'onboarding' : currentScreen}
+              theme={theme}
+              onResetToHome={isFirstLaunch ? undefined : goHome}
+            >
               {renderScreen()}
             </ErrorBoundary>
           ) : null}
@@ -519,11 +694,13 @@ const styles = StyleSheet.create({
   appContainer: { flex: 1 },
   layer: { flex: 1 },
   layerHidden: { flex: 1, display: 'none' },
+
   hydrationContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
+
   hydrationBadge: {
     width: 92,
     height: 92,
@@ -532,34 +709,79 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+
   hydrationBrand: {
     fontSize: 26,
     fontWeight: '900',
     letterSpacing: 4,
     marginTop: 20,
   },
+
   loadingIndicator: { marginTop: 24 },
+
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 32,
   },
+
+  errorIconBox: {
+    width: 80,
+    height: 80,
+    borderRadius: 24,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 18,
+  },
+
   errorTitle: {
     fontSize: 20,
     fontWeight: '900',
-    marginTop: 20,
     marginBottom: 8,
+    textAlign: 'center',
   },
+
   errorMessage: {
-    fontSize: 13,
+    fontSize: 13.5,
     textAlign: 'center',
-    lineHeight: 19,
-    marginBottom: 16,
+    lineHeight: 20,
+    marginBottom: 24,
   },
-  errorHint: {
-    fontSize: 11,
-    textAlign: 'center',
-    fontStyle: 'italic',
+
+  errorActions: {
+    width: '100%',
+    maxWidth: 280,
+    gap: 10,
+  },
+
+  errorPrimaryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    minHeight: 48,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+  },
+
+  errorPrimaryBtnText: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
+
+  errorSecondaryBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 46,
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+  },
+
+  errorSecondaryBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
   },
 });

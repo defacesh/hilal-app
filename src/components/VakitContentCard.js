@@ -180,12 +180,13 @@ const VakitContentCard = memo(function VakitContentCard({
     Alert.alert('Kopyalandı', 'İçerik panoya kopyalandı.');
   };
 
+  const baslikUpper = baslik.toLocaleUpperCase('tr-TR');
   const headerLabel =
     kind === 'ayet'
-      ? `${baslik.toUpperCase()} AYETİ`
+      ? `${baslikUpper} AYETİ`
       : kind === 'dua'
-      ? `${baslik.toUpperCase()} DUASI`
-      : `ESMAÜL HÜSNA · ${baslik.toUpperCase()}`;
+      ? `${baslikUpper} DUASI`
+      : `ESMAÜL HÜSNA · ${baslikUpper}`;
 
   const showArabicBlock = showArabic !== false;
   const noTurkishWarning =

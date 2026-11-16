@@ -13,8 +13,8 @@ import * as DiyanetApi from './diyanetKuranApi';
 export const QURAN_SOURCES = {
   offline: {
     id: 'offline',
-    label: 'Offline Kur\'an',
-    description: 'İnternet gerekmez · tam metin',
+    label: 'Çevrimdışı Kur\'an',
+    description: 'Diyanet meali · İnternet gerekmez · tam metin',
     wordByWord: false,
     latin: false,
     footnotes: false,
